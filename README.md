@@ -8,6 +8,6 @@ La **versión digital e impresa del libro** se consigue en el siguiente [Enlace]
 
 Los **archivos de soporte del libro en formato `r`** se pueden descargar en el siguiente [Enlace](https://www.editdiazdesantos.com/libros/lanza_anejo.php?isbn=9788490524817&formato=.zip) .
 
-<img src="https://www.editdiazdesantos.com/images/covers/9788490524817.jpg" width="20%"/>
+<img src="https://www.editdiazdesantos.com/images/covers/9788490524817.jpg" width="40%"/>
 
 
