@@ -1,0 +1,396 @@
+---
+title: "Capítulo6.rda"
+author: "Javier Rodríguez Barrios"
+date: "1/7/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+#----------------------
+# Lectura de la base de datos 
+datos = read.csv2("Microalgas.csv",row.names=1)
+
+#----------------------
+# Paquetes requeridos
+# El paquete "ade4" debe ir antes de "vegan" para no crear conflictos en RDA o CCA
+library(ade4)
+library(adegraphics)
+library(adespatial)
+library(cocorresp)
+library(vegan)
+library(MASS)
+library(ellipse)
+library(FactoMineR)
+library(rrcov)
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+library(ggforce)
+
+# Funciones adiconales (Bordcard et al. 2018)
+source("hcoplot.R")
+source("triplot.rda.R")
+source("plot.lda.R")
+source("polyvars.R")
+source("screestick.R")
+
+
+# Ajuste de las bases de datos biológica (tax.hel) 
+# y fisiqcoquimica (amb)
+str(datos)       # Estructura de la base de datos
+datos$Tributario = as.factor (datos$Tributario) 	# Convertir Época a factor
+str(datos)    # Nueva estructura de la base de datos
+
+
+# Variables ambientales
+amb=(datos[,c(2:11)]+1)
+head(amb)
+
+# Variables biológicas linealizadas - Taxones con Hellinger
+tax.hel=decostand(datos[,c(12:32)],"hellinger")
+head(tax.hel)
+
+
+
+#----------------------
+# Desarrollo del RDA
+tax.rda<-rda(tax.hel ~.,amb)
+tax.rda # Resultados resumidos
+
+summary(tax.rda) # Resultados completos
+
+# Insumos principales del RDA
+# Constrained: varianza de matriz Y, explicada por matriz X
+# Unconstrained: varianza de los residuales del RDA
+
+# Eigambalues: varianza de matriz Y (suma de los RDA) y de residuales (PC)
+# constrained eigambalues: Varianza acumulada explicada solo de Y (ejes RDA)
+# Scaling 2: Ajuste que hace a las epecies, recomendado en el análisis.
+# Species scores: Coordenadas de las especies en el bi o triplot.
+# Site scores: coordenadas de los sitios en el espacio e las variables Y.
+# Site constraints: coordenadas de los sitios en el espacio de variables X
+# Biplot: Coordenadas de las variables X
+
+# (coef): coeficientes de regresión de variables X 
+# en el modelo lineal canónico (con eje 1)
+round(coef(tax.rda),4)
+# Distribución sp= -0.0013 x (dfs) + 0.0002 x (ele) - 0.002 (slo) +
+#                0.0041 x (dis) + ....
+
+#----------------------
+# R^2 sin ajuste vs. R^2 ajustado (Ezequiel 1930)
+# R^2 sin ajuste (inercia restringida)
+(R2 <- RsquareAdj(tax.rda)$r.squared)
+# R^2 ajustado
+(R2adj <- RsquareAdj(tax.rda)$adj.r.squared)
+# este último es menor, por ser insesgado.
+
+
+#----------------------
+# Figura de Triplot
+## Dos Triplots del RDA (Scalng 1 y Scaing 2)
+
+#--------
+# Versión resumida del Tri-Plot
+dev.new(title = "RDA scaling 1 y 2",
+        width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+# Scaling 1
+plot(tax.rda,scaling=1, display = c("sp", "lc", "cn"), main="RDA - scaling 1")
+# Scaling 2
+plot(tax.rda, display = c("sp", "lc", "cn"), main="RDA - scaling 2")
+
+
+
+#---------
+# Versión extendida del Tri-Plot
+dev.new(title = "RDA scaling 1 y 2",
+  width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+
+# Scaling 1
+plot(tax.rda,scaling = 1,display = c("sp", "lc", "cn"),
+     main = "Triplot RDA tax.hel ~ amb - scaling 1")
+     spe.sc1 <- scores(tax.rda, choices = 1:2, scaling = 1, 
+     display = "sp")
+     arrows(0, 0, spe.sc1[, 1] * 0.92,spe.sc1[, 2] * 0.92,
+     length = 0, lty = 1, col = "red")
+
+# Scaling 2
+plot(tax.rda,display = c("sp", "lc", "cn"), 
+     main = "Triplot RDA tax.hel ~ amb - scaling 2")
+     spe.sc2 <- scores(tax.rda,choices = 1:2, display = "sp")
+     arrows(0, 0,spe.sc2[, 1] * 0.92, spe.sc2[, 2] * 0.92,
+     length = 0, lty = 1,  col = "red")
+
+     
+#----------------------
+# Prueba global del RDA (dos opciones)
+# Ho= no hay relación entre las variables X y las Y
+anova(tax.rda, permutations = how(nperm = 1000))
+
+# Prueba de los ejes canónicos
+anova(tax.rda, by = "axis", permutations = how(nperm = 1000))
+
+# Factor de inflación de la varianza (VIF) del RDA
+vif.cca(tax.rda)
+# Todas variables ambientales son apropiadas por estar encima de 10.
+# (Amonio,Nitrito,Nitrato,Oxigeno,pH,Conductividad,Caudal	Vel_Corriente,Luz,Temp),
+
+
+# Criterios de selección de variables explicativas (X)
+# 1. Forward selection usando forward.sel()
+forward.sel(tax.hel, amb, adjR2thresh = R2adj)
+# Define a tres variables FallTwig, BareSand, CoveMoss, 
+# las cuales definen un R^2: 0.61 (61% de relación).
+
+# 2. Eliminación anticipada (Backward) usando "ordistep()" de vegan
+step.backward <- ordistep(tax.rda,permutations = how(nperm = 499))
+# Define a las mismas variables.
+
+# R^2 ajustado
+RsquareAdj(step.backward)
+# Se define un R^2: 0.2 (20% de relación)
+
+
+#----------------------
+##  RDA Parsimonioso (rda.par)
+(rda.pars <- rda(tax.hel ~ Temp + Vel_Corriente + Conductividad, data = amb))
+# R^2 restringido y sin ajuste de 0.65 (65%) que explica la relación de las variables X y Y
+
+# Coeficientes del modelo lineal parsimonioso
+round(coef(rda.pars),4)
+
+# *Los pasos que siguen consisten en el diagnóstico del modelo con las 4 variables 
+# seleccionadas y para este ejemplo se puede llegar hasta aquí.
+
+# Prueba global del RDA parsimonioso
+# Ho= no hay relación entre las variables X y las Y
+anova(rda.pars, permutations = how(nperm = 1000))
+
+# Prueba de los ejes canónicos
+anova(rda.pars, permutations = how(nperm = 1000), by = "axis")
+
+# Cálculo del R^2 ajustado, según la formula de Ezekiel (1930)
+(rda.pars1 <- RsquareAdj(rda.pars)$adj.r.squared)
+
+# Comparación de factores de inflación de la varianza
+vif.cca(tax.rda)
+vif.cca(rda.pars)
+
+## Dos Triplots del RDA parsimonioso (Scalng 1 y Scaing 2)
+
+dev.new(title = "RDA Parsimonioso scaling 1 y 2",
+        width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+
+# Scaling 1
+plot(rda.pars,scaling = 1,display = c("sp", "lc", "cn"),
+     main = "Triplot RDA spe.esp ~ amb - scaling 1")
+spe.sc1 <- scores(rda.pars, choices = 1:2, scaling = 1, display = "sp")
+arrows(0, 0, spe.sc1[, 1] * 0.92,spe.sc1[, 2] * 0.92,
+       length = 0, lty = 1, col = "red")
+
+
+# Scaling 2
+plot(rda.pars,display = c("sp", "lc", "cn"), 
+     main = "Triplot RDA spe.esp ~ amb - scaling 2")
+spe.sc2 <- scores(rda.pars,choices = 1:2, display = "sp")
+arrows(0, 0,spe.sc2[, 1] * 0.92, spe.sc2[, 2] * 0.92,
+       length = 0, lty = 1,  col = "red")
+
+par(mfrow = c(1, 1))
+
+
+
+
+#----------------------
+# RDA con paquete ggplot2
+
+# Insumos del RDA parsimonioso o que resume a las tres variables
+(rda.pars <- rda(tax.hel ~ Temp + Vel_Corriente + Conductividad, data = amb))	# RDA resumido.
+names(summary(rda.pars))	# Insumos del RDA parsimonioso
+# Permite identificar las coorddenadas de los sitios ("sites"), 
+# los taxones ("sp") y las variables ambientales ("vectors")
+
+# 1) Coordenadas de los sitios y el factor "coord.sit" 
+coord.sit <- as.data.frame(scores(rda.pars,
+             choices = 1:2, display = "sites"))     # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)      # Crear una columna con nombres de los sitios
+coord.sit$grp <-  datos$Tributario               # Adicionar columna de grupos por Tributario
+head(coord.sit)                             # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de los taxones "coord.tax"
+coord.tax <- as.data.frame(scores(rda.pars,
+             choices = 1:2, display = "sp"))    # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)       # Insertar columna con nombres de las especies
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales "coord.amb"
+# rda.pars escoge a las variables: Temp, Vel_Corriente, Conductividad
+# envfit (amb1) escoge a las variables: 
+# Graficar con envfit pero solo las que escoge rda.pars
+amb1 <- envfit(tax.rda, amb) # Se pueden seleccionar variables con, p.max = 0.05
+coord.amb = as.data.frame(scores(amb1, "vectors"))
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+coord.amb = coord.amb[c(6,8,10),] # La 3 variables seleccionadas
+head(coord.amb) 
+
+
+# 4) Figuras de la ordenación con el RDA parsimonioso
+# 4.1) Figura con vectores de especies
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Factor 
+  geom_polygon(data=coord.sit,aes(x=RDA1,y=RDA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 4.2) Figura con vectores de especies (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Factor 
+  geom_polygon(data=coord.sit,aes(x=RDA1,y=RDA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 4.3) Figura con elipses por grupo (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Factor 
+  geom_mark_ellipse(data=coord.sit, aes(x=RDA1,y=RDA2,fill=grp,group=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 4.4) Figura con de elipses por concavidades - geom_mark_hull
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Factor 
+  geom_mark_hull(data=coord.sit, aes(x=RDA1,y=RDA2,fill=grp,group=grp,
+                                     colour=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 4.5) Figura con vectores de especies y ambientales
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(RDA1,RDA2,label=row.names(coord.amb)),colour = "#00abff")+
+  # Factor 
+  geom_mark_ellipse(data=coord.sit, aes(x=RDA1,y=RDA2,fill=grp,group=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 4.6) Figura con de elipses por concavidades - geom_mark_hull
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(RDA1,RDA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(RDA1,RDA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(RDA1,RDA2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = RDA1, yend = RDA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(RDA1,RDA2,label=row.names(coord.amb)),colour = "#00abff")+
+  # Factor 
+  geom_mark_hull(data=coord.sit, aes(x=RDA1,y=RDA2,fill=grp,group=grp,
+                                     colour=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+```
+

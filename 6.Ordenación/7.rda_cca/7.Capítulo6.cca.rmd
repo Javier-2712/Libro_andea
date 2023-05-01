@@ -1,0 +1,296 @@
+---
+title: "Capítulo6.cca"
+author: "Javier Rodríguez Barrios"
+date: "3/7/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+#----------------------
+# Paquetes requeridos
+# El paquete "ade4" debe ir antes de "vegan" para no crear conflictos en CCA o CCA
+library(ade4)
+library(adegraphics)
+library(adespatial)
+library(cocorresp)
+library(vegan)
+library(vegan3d)
+library(MASS)
+library(ellipse)
+library(FactoMineR)
+library(rrcov)
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+
+# Funciones adiconales (Bordcard et al. 2018)
+source("hcoplot.R")
+source("triplot.rda.R")
+source("plot.lda.R")
+source("polyvars.R")
+source("screestick.R")
+
+
+# Llamar en R a la base de datos "Microalgas.csv"
+datos = read.csv2("Microalgas.csv",row.names=1)
+
+
+#-------------
+# Ajuste de las bases de datos biológica (tax) y fisiqcoquimica (amb)
+str(datos)    	# Estructura de la base de datos
+datos$Tributario = as.factor (datos$Tributario)   	# Convertir Época a factor
+str(datos)    	# Nueva estructura de la base de datos
+
+
+# Variables ambientales
+amb=log10(datos[,c(2:11)]+1)
+head(amb)
+
+
+# Variables biológicas
+tax=datos[,c(12:32)]
+head(tax)
+
+
+
+#----------------------
+# Desarrollo del CCA
+tax.cca<-cca(tax~.,amb)
+tax.cca # Resultados resumidos
+
+summary(tax.cca) # Resultados completos
+
+# (coef): coeficientes de regresión de variables X 
+# en el modelo lineal canónico (con eje 1 ó CCA1)
+round(coef(tax.cca),2)
+
+#----------------------
+# R^2 sin ajuste vs. R^2 ajustado (Ezequiel 1930)
+# R^2 sin ajuste (inercia restringida)
+(R2 <- RsquareAdj(tax.cca)$r.squared)
+# R^2 ajustado
+(R2adj <- RsquareAdj(tax.cca)$adj.r.squared)
+# este último es menor, por ser insesgado.
+
+
+#----------------------
+# Figura de Triplot
+
+#----------------------
+# Versión resumida del Tri-Plot
+
+dev.new(title = "CCA scaling 1 y 2",
+        width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+# Scaling 1
+plot(tax.cca,scaling=1, display = c("sp", "lc", "cn"), main="CCA - scaling 1")
+# Scaling 2
+plot(tax.cca, display = c("sp", "lc", "cn"), main="CCA - scaling 2")
+
+
+
+#  Versión extensa del Tri-Plot
+dev.new(title = "CCA scaling 1 y 2",
+  width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+
+# Scaling 1
+plot(tax.cca,scaling = 1,display = c("sp", "lc", "cn"),
+     main = "Triplot CCA tax ~ amb - scaling 1")
+     spe.sc1 <- scores(tax.cca, choices = 1:2, scaling = 1, 
+     display = "sp")
+     arrows(0, 0, spe.sc1[, 1] * 0.92,spe.sc1[, 2] * 0.92,
+     length = 0, lty = 1, col = "red")
+
+# Scaling 2
+plot(tax.cca,display = c("sp", "lc", "cn"), 
+     main = "Triplot CCA tax ~ amb - scaling 2")
+     spe.sc2 <- scores(tax.cca,choices = 1:2, display = "sp")
+     arrows(0, 0,spe.sc2[, 1] * 0.92, spe.sc2[, 2] * 0.92,
+     length = 0, lty = 1,  col = "red")
+
+
+#----------------------
+# Prueba global del CCA (dos opciones)
+# Ho= no hay relación entre las variables X y las Y
+anova(tax.cca, permutations = how(nperm = 1000))
+
+# Prueba de los ejes canónicos
+anova(tax.cca, by = "axis", permutations = how(nperm = 1000))
+
+# No se puede correr la Selección de especies (variables) con ajuste al menos 0.6 (60%)
+
+# Factor de inflación de la varianza (VIF) del CCA
+vif.cca(tax.cca)
+# las 8/10 variables ambientales están por encima de 10,
+# (Caudal y Velocidad de la Corriente),
+
+
+#---------------------
+# Criterios de selección de variables explicativas (X)
+
+# Eliminación anticipada (Backward) usando "ordistep()" de vegan
+step.backward <- ordistep(tax.cca,permutations = how(nperm = 499))
+# Define a las mismas variables.
+RsquareAdj(step.backward)
+# Se define un R^2: 0.59 (59% de relación)
+
+
+#----------------------
+##  CCA Parsimonioso (CCA.par)
+# A diferencia del CCA, se reemplaza la velocidad de la corriente por los Nitritos
+(cca.pars <- cca(tax ~ Temp + Conductividad + Nitrito, data = amb))
+cca.pars
+# R^2 restringido y sin ajuste de 0.26 (26%) que explica la relación de las variables X y Y
+
+# Coeficientes del modelo lineal parsimonioso
+round(coef(cca.pars),4)
+
+# *Los pasos que siguen consisten en el diagnóstico del modelo con las 4 variables 
+# seleccionadas y para este ejemplo se puede llegar hasta aquí.
+
+# Prueba global del CCA parsimonioso
+# Ho= no hay relación entre las variables X y las Y
+anova(cca.pars, permutations = how(nperm = 999))
+
+# Prueba de los ejes canónicos
+anova(cca.pars, permutations = how(nperm = 999), by = "axis")
+
+# Cálculo del R^2 ajustado, según la formula de Ezekiel (1930)
+(cca.pars1 <- RsquareAdj(cca.pars)$adj.r.squared)
+
+# Comparación de factores de inflación de la varianza
+vif.cca(tax.cca)
+vif.cca(cca.pars)
+
+## Dos Triplots del CCA parsimonioso (Scalng 1 y Scaing 2)
+dev.new(title = "CCA Parsimonioso scaling 1 y 2",
+        width = 16,height = 8,noRStudioGD = TRUE)
+par(mfrow = c(1, 2))
+
+# Scaling 1
+plot(cca.pars,scaling = 1,display = c("sp", "lc", "cn"),
+     main = "Triplot CCA spe.esp ~ amb - scaling 1")
+spe.sc1 <- scores(cca.pars, choices = 1:2, scaling = 1, display = "sp")
+arrows(0, 0, spe.sc1[, 1] * 0.92,spe.sc1[, 2] * 0.92,
+       length = 0, lty = 1, col = "red")
+
+
+# Scaling 2
+
+plot(cca.pars,display = c("sp", "lc", "cn"), 
+     main = "Triplot CCA spe.esp ~ amb - scaling 2")
+spe.sc2 <- scores(cca.pars,choices = 1:2, display = "sp")
+arrows(0, 0,spe.sc2[, 1] * 0.92, spe.sc2[, 2] * 0.92,
+       length = 0, lty = 1,  col = "red")
+
+par(mfrow = c(1, 1))
+
+
+
+
+#----------------------
+# 5) CCA con paquete ggplot2
+
+# Realización datos.ca de los paquetes factoextra y ggbiplot 
+# Para gererar las coordenadas de los sitios y taxones
+(cca.pars <- cca(tax ~ Temp + Conductividad + Nitrito, data = amb))
+names(cca.pars)	
+summary(cca.pars)	
+
+# 1) Coordenadas de los sitios y el factor "coord.sit"
+coord.sit <- as.data.frame(cca.pars$CCA$u[,1:2])    # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)              # Crear una columna con nombres de los sitios
+coord.sit$grp <-  datos$Tributario                  # Adicionar columna de grupos por Tributario
+head(coord.sit)                             # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de los taxones "coord.tax"
+coord.tax <- as.data.frame(cca.pars$CCA$v[,1:2])    # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)       # Insertar columna con nombres de las especies
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales "coord.amb"
+# cca.pars escoge a las variables: Temp, Vel_Corriente, Conductividad
+coord.amb <- as.data.frame(cca.pars$CCA$biplot[,1:2])
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+head(coord.amb) 
+
+
+# 3.1) Figura con vectores de especies
+library(ggrepel)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CCA1,CCA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CCA1,CCA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CCA1, yend = CCA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CCA1,CCA2,label=especies),colour = "red")+
+  # Factor 
+  geom_polygon(data=coord.sit,aes(x=CCA1,y=CCA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.2) Figura con vectores de especies (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CCA1,CCA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CCA1,CCA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CCA1, yend = CCA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CCA1,CCA2,label=especies),colour = "red")+
+  # Factor 
+  geom_polygon(data=coord.sit,aes(x=CCA1,y=CCA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.3 Figura con vectores de especies y ambientales
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CCA1,CCA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CCA1,CCA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CCA1, yend = CCA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CCA1,CCA2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = CCA1, yend = CCA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(CCA1,CCA2,label=row.names(coord.amb)),colour = "#00abff")+
+  # Factor 
+  geom_polygon(data=coord.sit,aes(x=CCA1,y=CCA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+```
+

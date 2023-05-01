@@ -1,0 +1,208 @@
+---
+title: "Capítulo7.t2"
+author: "Javier Rodríguez Barrios"
+date: "5/7/2022"
+output: html_document
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+#--------------------
+# Lectura de la base de datos "aves.csv"
+aves<-read.csv2("Aves.csv",row.names=1)
+# Se excluyen los carnivoros y granivoros de este ejercicio
+
+# Librerías
+library(magrittr)   # Para la distancia Mahalanobish
+library(StatMatch)  # Para la distancia Mahalanobish
+library(Hotelling)  # Para la prueba de Hotelling
+library(ICSNP)      # Para la prueba de Hotelling
+library(mvnormtest) # Para la prueba de normalidad multivariada
+library(vegan)      # Para el permutes en homogeneidad de covarianzas
+library(mvnormtest)     # Prueba de normalidad "mshapiro.test"
+source("funciones.r")   # Figuras de normalidad multivariada
+
+
+#-------------------
+# Ajuste de la base de datos
+aves = aves[,c(-1,-2,-3,-5)]   # Eliminar columnas de taxonomía y Dieta.n
+
+# Convertir "Dieta" a factor
+aves$Dieta = as.factor(aves$Dieta)
+
+# Resumir nombres de las variables
+colnames(aves) <- c("Dieta", "C.exp", "C.tot", "L.nar", "A.nar",
+                    "Com", "L.tar", "C.al", "L.rec", "L.tot")
+# Datos por cada grupo o tipo de dieta
+summary(aves[,1])
+
+# Base de datos con variables transformadas
+aves1 = log10(aves[,2:10])  # Transformación logarítmica
+attach(aves)
+aves = data.frame(Dieta, aves1)  # Base con variables transformadas
+str(aves)
+
+
+# Datos de frugivoros, Insectivoros y Nectarivoros
+Frugiv = aves[aves$Dieta == "F",]	# Base de datos de frugívoros (Frugiv).
+round(head(Frugiv[,2:10]),2)
+
+Insect = aves[aves$Dieta == "I",]	# Base de datos de insectívoros (Insect).
+round(head(Insect[,2:10]),2)
+
+Nect = aves[aves$Dieta == "N",]	# Base de datos de nectarívoros (Nect).
+round(head(Nect[,2:10]),2)
+
+
+
+#-------------
+# Distancia Mahalanobish entre frugivoros e insectívoros Paquetes "magrittr" y "StatMatch"
+d.mahal <- mahalanobis.dist(data.x = Frugiv[,2:10], 
+                            data.y= Insect[,2:10])	# Distancia Mahalanobish calculada
+round(d.mahal[1:5, 1:5],2)
+
+
+
+#-----------
+# Supuestos de Normalidad Multivariada y Homogeneidad de Covarianzas
+
+norm1 <- as.matrix(t(Frugiv[,2:10]))
+norm1 <- mshapiro.test(norm1)		# mshapiro para la muestra de frugívoros
+norm1
+
+norm2 <- as.matrix(t(Insect[,2:10]))
+norm2 <- mshapiro.test(norm2)		# mshapiro para la muestra de insectívoros
+norm2  
+
+norm3 <- as.matrix(t(Nect[,2:10]))
+norm3 <- mshapiro.test(norm3)		# mshapiro para la muestra de necarívoros
+
+
+# Normalidad para las tres muestras o grupos de dietas
+normalidad = data.frame(Norm.frug=norm1$p.value,Norm.Insect=norm2$p.value,
+                        Norm.Nect=norm3$p.value)
+normalidad 
+
+
+#--------
+# Figuras de normalidad multivariada
+
+# 1) Figura de normalidad para la muestra de frugívoros
+x <- as.matrix(Frugiv[,2:10])
+# 
+center <- colMeans(x) 
+n <- nrow(x); p <- ncol(x); cov <- cov(x); 
+d <- mahalanobis(x,center,cov) 
+
+x11()
+qqplot(qchisq(ppoints(n),df=p),d,
+       main="QQ Plot para normalidad multivariada",
+       ylab="Cuantil Chi-Cuadrado", xlab= "Distancia Mahalanobish")
+abline(a=0,b=1, col=2) 
+
+
+
+# 2) Figura de normalidad para la muestra de insectívoros
+x <- as.matrix(Insect[,2:10])
+# 
+center <- colMeans(x) 
+n <- nrow(x); p <- ncol(x); cov <- cov(x); 
+d <- mahalanobis(x,center,cov) 
+
+x11()
+qqplot(qchisq(ppoints(n),df=p),d,
+       main="QQ Plot para normalidad multivariada",
+       ylab="Cuantil Chi-Cuadrado", xlab= "Distancia Mahalanobish")
+abline(a=0,b=1, col=2) 
+
+
+
+# 3) Figura de normalidad para la muestra de nectarívoros
+x <- as.matrix(Nect[,2:10])
+# 
+center <- colMeans(x) 
+n <- nrow(x); p <- ncol(x); cov <- cov(x); 
+d <- mahalanobis(x,center,cov) 
+
+x11()
+qqplot(qchisq(ppoints(n),df=p),d,
+       main="QQ Plot para normalidad multivariada",
+       ylab="Cuantil Chi-Cuadrado", xlab= "Distancia Mahalanobish")
+abline(a=0,b=1, col=2) 
+
+
+
+#-----------
+# Pruebas de Homogeneidad de covarianzas paquete "vegan"
+
+# Matriz de distancias
+aves.d <- dist(aves[,c(2:10)])
+(aves.homoge <- betadisper(aves.d, aves$Dieta))
+
+# 1) Prueba con anova permutacional
+anova(aves.homoge)    # Se cumple el supuesto de homogeneidad
+
+# 2) Prueba permutacional
+permutest(aves.homoge)   # Se cumple el supuesto de homogeneidad 
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+#-----------------
+# 2) T2 con el paquete "Hotelling"
+
+# Comparación de las muestras de frugivoros e insectivoros (Grupos 1 y 2)
+t2.fi = hotelling.test(.~Dieta, data= aves, pair = c(1,2))
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Comparación de las muestras de frugivoros y nectarivoros  (Grupos 1 y 3)
+t2.fn = hotelling.test(.~Dieta, data= aves, pair = c(1,3))
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Comparación de las muestras de nectarivoros e insectivoros (Grupos 2 y 3)
+t2.ni = hotelling.test(.~Dieta, data= aves, pair = c(2,3))
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Tabla con los valores p de cada comparación realizada
+t2.hotelling = data.frame(Frug.Isect=t2.fi$pval,Frug.Nect=t2.fn$pval,
+                          Nect.Isect=t2.ni$pval)
+
+```
+
+
+```{r message=FALSE, warning=FALSE}
+t2.hotelling 
+```
+
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+# Figura con la comparación de frugivoros e insectivoros (Grupos 1 y 2)
+t2.fi = hotelling.test(.~Dieta, data= aves, pair = c(1,2),perm = TRUE)
+
+```
+
+```{r, message= FALSE, warning= FALSE}
+t2.fi
+x11()
+plot(t2.fi, col = "lightblue")
+
+
+#-------------------- 
+# 3) T2 Hotelling con el paquete "ICSNP" 
+
+# T2 entre frugivoros e insectivoros (Grupos Frugiv y Nect)
+HotellingsT2(Frugiv[,2:10], Insect[,2:10], test = "f")
+HotellingsT2(Frugiv[,2:10], Insect[,2:10], test = "chi")
+```
+
+
+

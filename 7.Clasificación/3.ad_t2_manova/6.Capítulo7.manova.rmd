@@ -1,0 +1,155 @@
+---
+title: "Capítulo7.manova"
+author: "Javier Rodríguez Barrios"
+date: "5/7/2022"
+output: html_document
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+#------------------
+# Lectura de la base de datos "aves.csv"
+aves<-read.csv2("aves.csv",row.names=1)
+
+# Librerías
+library(MASS)  # Para el análisis discriminante 
+library(mvnormtest) # Para la prueba de normalidad multivariada
+library(vegan)      # Para el permutes en homogeneidad de covarianzas
+library(mvnormtest)     # Prueba de normalidad "mshapiro.test"
+library(ade4)
+library(car)	     # Para ejecutar el diagnóstico de independencia
+library(ggplot2)
+library(reshape)   # Figuras de cajas con múltiples variables
+source("funciones.r")   # Figuras de normalidad multivariada
+
+#--------------------
+# Ajuste de la base de datos
+# Estructura de la base de datos
+
+aves = aves[,-5]        # Eliminar la variable "Dieta.n"
+aves = aves[,4:13]      # Datos sin columnas taxonómicas
+
+# Convertir "Dieta" a factor
+aves$Dieta = as.factor(aves$Dieta)
+
+# Resumir nombres de las variables
+colnames(aves) <- c("Dieta", "C.exp", "C.tot", "L.nar", "A.nar",
+                    "Com", "L.tar", "C.al", "L.rec", "L.tot")
+
+# Datos por cada grupo o tipo de dieta
+summary(aves[,1])
+
+# Transformación logaritmica de "aves"
+aves1 = log10(aves[,2:10])
+aves = data.frame(Dieta=aves$Dieta, aves1)
+str(aves)
+
+
+#------------------
+# Discriminación de las variables
+x11()
+ggplot(melt(aves[,1:10],id.var="Dieta"),aes(x=variable,y=value))+
+        geom_boxplot(aes(fill= Dieta))+            
+        facet_wrap( ~ variable, scales="free")+
+        theme_classic()+
+        labs(x="",y="")+
+        theme(axis.text.x=element_blank())
+
+
+
+#------------------
+# MANOVA  
+
+attach(aves)
+
+# Manova (variables respuesta: morfológicas y la explicativa: grupos de dietas)
+aves.manova<-manova(cbind(C.exp,C.tot,L.nar,A.nar,Com,
+                          L.tar,C.al,L.rec,L.tot)~Dieta)
+
+# respuesta por cada variable
+summary.aov(aves.manova)
+
+
+# Tipos de MANOVA para evaluar si hay diferencias en los promedios de cada dieta 
+summary(aves.manova,test="Pillai")
+summary(aves.manova,test="Wilks")
+summary(aves.manova,test="Hotelling")
+summary(aves.manova,test="Roy")
+
+
+#------------------
+# Post Hoc del MANOVA
+
+# Análisis discriminante lineal (LDA)
+dis<-lda(Dieta~C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot,data=aves)
+dis
+
+# Escores o coordenadas de las observaciones en cada eje canónico
+Fp <- predict(dis)$x
+
+# Grupos asignados por el AD
+group<-predict(dis,method="plug-in")$class
+
+# Coordenadas y grupos asignados
+aves.coord=data.frame(Dieta=group,Fp)
+
+#Se representan los datos
+attach(aves)
+x11()
+scatterplot(LD2~LD1 | Dieta, data=aves.coord,reg.line=FALSE, 
+            smooth=F, spread=F,span= 1,grid=F,
+            legend=list(coords="bottom"), 
+            ellipse=T,font.lab=2, pch=c(15,16,17,18),
+            col=c("red","green","blue"),main="Análisis discriminante",
+            font.main=2,cex.main=2,cex.lab=1.5,
+            xlab="Eje1", ylab="Eje2")
+
+
+#------------------
+# Supuestos del Manova
+
+# 1) Prueba de multinormalidad de los residuales del manova (mshapiro.test)
+library(mvnormtest)
+x <- as.matrix(t(residuals(aves.manova)))
+mshapiro.test(x)
+# No se cumple este supuesto
+
+
+# Figura de multinormalidad
+# Funciones para la figura
+source("funciones.r")
+
+# Grafica QQ-PLot para visualizar la normalidad
+x <- as.matrix(residuals(aves.manova)) 
+# centroide
+center <- colMeans(x) 
+n <- nrow(x); p <- ncol(x); cov <- cov(x); 
+d <- mahalanobis(x,center,cov) 
+
+x11()
+qqplot(qchisq(ppoints(n),df=p),d,
+       main="Normalidad multivariada",
+       ylab="Cuantil Chi-Cuadrado", xlab= "Distancia Mahalanobish")
+       abline(a=0,b=1,col=2) 
+
+       
+#-----------
+# 2) Pruebas de Homogeneidad de covarianzas paquete "vegan"
+
+aves.d <- dist(aves[,c(2:10)])	# Matriz de distancias
+aves.homoge <- betadisper(aves.d, aves$Dieta)		# Permutest
+       
+# 1. Prueba con anova permutacional
+anova(aves.homoge)
+
+# 2. Prueba permutacional
+permutest(aves.homoge)   # Se cumple el supuesto de homogeneidad
+
+       
+
+# 3) Prueba de Independencia - Estadistico Durbin Watson
+modelo<-lm(C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot~Dieta)
+durbinWatsonTest(modelo)
+
+```
+

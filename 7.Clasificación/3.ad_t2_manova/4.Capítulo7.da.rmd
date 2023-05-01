@@ -1,0 +1,391 @@
+---
+title: "Capítulo7.da"
+author: "Javier Rodríguez Barrios"
+date: "4/7/2022"
+output:
+  html_document: default
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+#--------------------
+# Lectura de la base de datos "aves.csv"
+aves<-read.csv2("Aves.csv",row.names=1)
+# Se excluyen los carnivoros y granivoros de este ejercicio
+
+# Librerías requeridas
+library(ade4)
+require(vegan)
+library(car)
+library(MASS)
+library(candisc)
+library(ggplot2)
+library(ggrepel)
+library(reshape2)
+library(ggforce)
+library(car)
+library(candisc)
+library(ggplot2)
+library(mvnormtest)
+
+
+#--------------------
+# Ajuste de la base de datos
+# Estructura de la base de datos
+str(aves)
+
+# Datos sin columnas taxonómicas
+aves = aves[,-5]    # Eliminar la variable "Dieta.n"
+aves = aves[,4:13]  # Base de aves, solo con la variables cuantitativas
+
+# Convertir "Dieta" a factor
+aves$Dieta = as.factor(aves$Dieta)
+str(aves)
+
+# Resumir nombres de las variables
+colnames(aves) <- c("Dieta", "C.exp", "C.tot", "L.nar", "A.nar",
+                    "Com", "L.tar", "C.al", "L.rec", "L.tot")
+str(aves)
+
+# Datos por cada grupo o tipo de dieta
+summary(aves[,1])
+
+# Transformación logaritmica de "aves"
+aves1 = log10(aves[,2:10])
+aves = data.frame(Dieta=aves$Dieta, aves1)
+str(aves)
+
+
+#--------------------
+# Figuras de cajas
+attach(aves)
+#
+x11()
+bwplot(C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot ~ Dieta, 
+       aves, outer=T, ylab="Variables Morfométricas (mm)")
+
+# 
+x11()
+ggplot(melt(aves[,1:10],id.var="Dieta"),aes(x=variable,y=value))+
+  geom_boxplot(aes(fill= Dieta))+             #Para cinturas, incluir "notch = T"
+  facet_wrap( ~ variable, scales="free")+
+  theme_classic()+
+  labs(x="",y="")+
+  theme(axis.text.x=element_blank())
+
+#--------------------
+# Mapa de Calor
+aves.t <- na.exclude(aves)
+attach(aves.t)
+
+#Se calculan las medias para cada Dieta, para trabajar con datos promedio
+aves1<-aggregate(aves.t[,c(2:10)],na.rm=TRUE, 
+        by=list(Dieta=Dieta),mean)
+
+# Transformar el data frame a una matriz (aves 2)       
+aves2<-as.matrix(aves1[,2:10])
+aves2
+
+# Se escoge género como la observación a graficar 
+rownames(aves2)<-aves1[,1]
+aves2
+
+# Figura 
+x11()
+hv <- heatmap(aves2, margins=c(5,4), distfun = dist,
+              xlab ="Variables morfométricas", 
+              ylab= "Dietas", main = "Variables Morfométricas")   
+
+
+
+#-----------
+# Supuestos de Normalidad Multivariada y Homogeneidad de Covarianzas
+
+# 1) Normalidad multivariada
+str(aves)
+
+# Grupos por tipo de dieta
+Frugiv = aves[aves$Dieta == "F",]	# Base de datos de frugívoros (Frugiv).
+Insect = aves[aves$Dieta == "I",]	# Base de datos de insectívoros (Insect).
+Nect = aves[aves$Dieta == "N",]	  # Base de datos de nectarívoros (Nect).
+
+
+# Diagnóstico de normalidad por cada tipo de dieta
+library(mvnormtest)
+
+norm1 <- as.matrix(t(Frugiv[,2:10]))  # Normalidad para la muestra de frugívoros
+norm1 <- mshapiro.test(norm1)
+
+norm2 <- as.matrix(t(Insect[,2:10]))  # Normalidad para la muestra de insectívoros
+norm2 <- mshapiro.test(norm2)
+
+norm3 <- as.matrix(t(Nect[,2:10]))  # Normalidad para la muestra de nectarívoros
+norm3 <- mshapiro.test(norm3)
+
+(normalidad = data.frame(Norm.frug=norm1$p.value,
+              Norm.Insect=norm2$p.value,
+              Norm.Nect=norm3$p.value))
+
+
+#-----------
+# Pruebas de Homogeneidad de covarianzas paquete "vegan"
+
+aves.d <- dist(aves[,c(2:10)])	# Matriz de distancias
+(aves.homoge <- betadisper(aves.d, aves$Dieta))		# Permutest
+
+# 1) Prueba con anova permutacional
+anova(aves.homoge)    
+
+# 2) Prueba permutacional
+permutest(aves.homoge)   # Se cumple el supuesto de homogeneidad 
+
+
+
+
+#--------------------
+# Análisis Discriminante Lineal de Fisher - LDA
+
+# Cálculo del LDA
+names(aves)
+dis<-lda(Dieta~C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot,data=aves)
+dis
+# Prbabilidad de clasificar indv. de los tres grupos:
+# F: 0.25, G: 0.068, I: 0.556, N: 0.125 
+
+# Insumos del AD 
+summary(dis)
+
+#Grupos de medias para las 4 variables 
+dis$means
+
+# Autovalores estandarizados (pesos de las variables en cada eje)
+(Cs <- dis$scaling)
+
+# Escores o coordenadas de las seis primeras observaciones en cada eje canónico
+head(Fp <- predict(dis)$x)
+
+# Evaluación de desempeño del AD (método 1)
+attach(aves)
+group<-predict(dis,method="plug-in")$class
+(tabla<-table(Dieta,group))
+
+# Porcentaje de clasificación correcta 
+round(diag(prop.table(tabla, 1)),2)*100
+
+# Método 2: con clasifiación basada en jacknife (validación cruzada dejando uno afuera)
+dis.jac <- lda(Dieta~C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot,data=aves, CV=TRUE)
+# número y proporciones de clasificación correcta
+clases.jac <- dis.jac$class
+tabla.jac <- table(Dieta, clases.jac)
+tabla.jac
+
+round(diag(prop.table(tabla.jac, 1)),2)*100
+
+
+
+#--------------------
+# Figura del LDA
+# coef(dis)[,1] son coeficientes de cada variable en el eje1
+# t(aves[,c(-5,-6)] son las variables categóricas
+names(aves)
+dsfs1<-coef(dis)[,1]%*%t(aves[,c(-1)])
+dsfs2<-coef(dis)[,2]%*%t(aves[,c(-1)])
+
+# 1) Figura del discriminante LDA
+detach(aves)
+x11()
+plot(dsfs1,dsfs2,xlab="Eje1",ylab="Eje2",
+     col=as.integer(aves$Dieta), 
+     pch=as.integer(aves$Dieta)+18)
+
+# Convenciones de la figura para los tres tipos de dieta
+legend(3,-3,legend=levels(aves$Dieta),pch=19,col=1:3)
+
+
+# 2) Otra forma de graficar el LDA
+
+# Escores o coordenadas de las observaciones en cada eje canónico
+Fp <- predict(dis)$x
+
+# Grupos asignados por el AD
+group<-predict(dis,method="plug-in")$class
+
+# Coordenadas y grupos asignados
+aves.coord=data.frame(Dieta=group,Fp)
+
+# Figura del LDA
+attach(aves)
+x11()
+scatterplot(LD2~LD1 | Dieta, data=aves.coord,reg.line=FALSE, 
+            smooth=F, spread=F,span= 1,grid=F,
+            legend=list(coords="bottom"), 
+            ellipse=T,font.lab=2, pch=c(15,16,17,18),
+            col=c("red","green","blue"),main="Análisis discriminante",
+            font.main=2,cex.main=2,cex.lab=1.5,
+            xlab="Eje1", ylab="Eje2")
+
+legend(3,-3,legend=levels(aves$Dieta),pch=19,col=1:3)
+
+#--------------------
+# Predicción del tipo de dieta para el nuevo individuo, a partir del LDA.
+nuevo.ind <- c(2,2,2,2,2,2,2,2,2)
+nuevo.ind <- as.data.frame(t(nuevo.ind)) 
+colnames(nuevo.ind) <- colnames(aves[,c(2:10)])
+(predicción <- predict(dis, newdata=nuevo.ind))
+
+# Clasifica al individuo en la Dieta frugívora ($class [1] F).
+
+
+
+
+#--------------------
+# Análisis Discriminante Canónico (CDA) - paquete "candisc"
+attach(aves)
+names(aves)
+
+# Modelo Lineal multivariado con las variables morfométricas de aves
+mod <- lm(cbind(C.exp,C.tot,L.nar,A.nar,Com,L.tar,C.al,L.rec,L.tot) ~ Dieta,aves)
+
+# Resumen del modelo multivariado
+summary(mod)
+
+# Análisis discriminante canónico - ADC
+can <- candisc(mod, term="Dieta",data=aves,ndim=1)
+
+x11()
+plot(can,titles.1d = c("Puntuación canónica", "Estructura"))
+summary(can, means = FALSE, scores = TRUE, coef = c("std"), digits = 2)
+
+
+
+
+#--------------------
+# pca para discrimirar aves - paquete "ade4"
+
+pc<-dudi.pca(aves[,c(2:10)],scannf=F,nf=2,scale=TRUE)
+pc
+
+s.arrow(pc$c1,lab=names(pc$tab))
+s.class(pc$li,aves$Dieta, cell = 0, cstar = 0.5)
+s.corcircle(pc$co)
+
+
+
+#--------------------
+# LDA con paquete ggplot2
+
+# LDA para gererar las coordenadas de los sitios y Variables
+dis<-lda(Dieta~C.exp+C.tot+L.nar+A.nar+Com+L.tar+C.al+L.rec+L.tot,data=aves)
+names(dis)	# Insumos del LDA
+
+# 1) Coordenadas de los sitios y de las dietas "coord.obs"
+coord.obs <- as.data.frame(predict(dis)$x)     # Coordenadas de los individuos
+coord.obs$indiv <- rownames(coord.obs)         # Crear una columna con nombres de los sitios
+coord.obs$grp <-  predict(dis,method="plug-in")$class     # Adicionar columna de grupos por Epoca
+head(coord.obs)                                # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de las variables "coord.var"
+coord.var <- as.data.frame(dis$scaling)    # Dos primeros ejes
+coord.var$variables <- rownames(coord.var) # Insertar columna con nombres de las especies
+head(coord.var) 
+
+
+# 3.1) Figura con vectores de especies
+
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.obs,aes(LD1,LD2,label=row.names(coord.obs)),
+                  size=3)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.obs,aes(LD1,LD2,colour=grp),size=3)+
+  scale_shape_manual(values = c(21:25))+
+  # Variables  
+  geom_segment(data = coord.var,aes(x = 0, y = 0, xend = LD1, yend = LD2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.var,aes(LD1,LD2,label=variables),colour = "red")+
+  # Factor
+  geom_polygon(data=coord.obs,aes(x=LD1,y=LD2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.2) Figura con vectores de especies (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.obs,aes(LD1,LD2,label=row.names(coord.obs)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.obs,aes(LD1,LD2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Variables  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.var,aes(x = 0, y = 0, xend = LD1, yend = LD2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.var,aes(LD1,LD2,label=variables),colour = "red")+
+  # Factor
+  geom_polygon(data=coord.obs,aes(x=LD1,y=LD2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.2) Figura con elipses - geom_mark_ellipse
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.obs,aes(LD1,LD2,label=row.names(coord.obs)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.obs,aes(LD1,LD2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Variables  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.var,aes(x = 0, y = 0, xend = LD1, yend = LD2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.var,aes(LD1,LD2,label=variables),colour = "red")+
+  # Factor
+  geom_mark_ellipse(data=coord.obs, aes(x=LD1,y=LD2,fill=grp,group=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.4) Figura con de elipses por concavidades - geom_mark_hull
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.obs,aes(LD1,LD2,label=row.names(coord.obs)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.obs,aes(LD1,LD2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Variables  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.var,aes(x = 0, y = 0, xend = LD1, yend = LD2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.var,aes(LD1,LD2,label=variables),colour = "red")+
+  # Factor
+  geom_mark_hull(data=coord.obs, aes(x=LD1,y=LD2,fill=grp,group=grp,
+                                     colour=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+```
+

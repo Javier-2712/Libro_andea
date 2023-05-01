@@ -1,0 +1,216 @@
+---
+title: "Capítulo8.pemutest"
+author: "Javier Rodríguez Barrios"
+date: "5/7/2022"
+output:
+  html_document: default
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+#--------------------
+# Lectura de la base de datos "aves.csv"
+aves<-read.csv2("aves.csv",row.names=1)
+
+# Librerías requeridas
+library(ade4)
+require(vegan)
+library(lattice)
+library(car)
+library(ggplot2)
+library(tidyverse)
+library(ggrepel)
+library(ggforce)
+library(mvnormtest)
+library(RVAideMemoire)
+source("funciones.r")
+library(dplyr)
+library(concaveman)
+library(reshape) 
+
+
+#--------------------
+# Ajuste de la base de datos
+
+# Datos sin columnas taxonómicas
+aves = aves[,-5]    # Eliminar la variable "Dieta.n"
+aves = aves[,4:13]
+
+# Convertir "Dieta" a factor
+aves$Dieta = as.factor(aves$Dieta)
+
+# Resumir nombres de las variables
+colnames(aves) <- c("Dieta", "C.exp", "C.tot", "L.nar", "A.nar",
+                    "Com", "L.tar", "C.al", "L.rec", "L.tot")
+
+# Datos por cada grupo o tipo de dieta
+summary(aves[,1])
+
+# Transformación logaritmica de "aves"
+aves1 = log10(aves[,2:10])
+aves = data.frame(Dieta=aves$Dieta, aves1)
+str(aves)
+
+
+#-------------------
+# NMDS con ggplot2
+
+# Ordenación de los individuos y los tipos de dieta de las aves
+aves.nmds <- metaMDS(aves[,2:10],trace = FALSE,dist = "euclid")
+
+
+# 1) Coordenadas de los individuos y el factor (coord.indv)
+coord.indv <- as.data.frame(aves.nmds$points)   # Coordenadas de los individuos
+coord.indv$indv <- rownames(coord.indv)         # Crear una columna con nombres de los individuos
+coord.indv$Dietas <- aves$Dieta                 # Adicionar columna de grupos por Dieta
+head(coord.indv)                                # vista resumida de las coordenadas de los individuos y dietas
+
+# 2) Coordenadasde las Variables (coord.tax) 
+coord.tax <- as.data.frame(aves.nmds$species)  # Dos primeros ejes
+coord.tax$Morfomet <- rownames(coord.tax)       # Insertar columna con nombres de las Variables
+head(coord.tax) 
+
+
+# Figura del NMDS
+x11()
+ggplot() +
+  # Individuos
+  geom_text_repel(data = coord.indv,aes(MDS1,MDS2,label=row.names(coord.indv)),
+                  size=4)+   
+  geom_point(data = coord.indv,aes(MDS1,MDS2,colour=Dietas),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Variables
+  geom_text_repel(data = coord.tax,aes(MDS1,MDS2,label=Morfomet),colour = "red")+
+  # Dietas
+  geom_mark_hull(data=coord.indv, aes(x=MDS1,y=MDS2,fill=Dietas,group=Dietas,
+                                     colour=Dietas),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+
+#--------------------
+# 1) Análisis de similitudes - ANOSIM
+
+# Distancia Euclidea para aves
+aves.dist<-vegdist(aves[,c(2:10)],"euclid")
+
+# Anosim
+aves.anosim <- anosim(aves.dist, aves$Dieta, permutations=1000)
+summary(aves.anosim)
+
+# muestra un R = 0,31 (Diferencias entre grupos de dietas).
+#el valor p < 0.05,(las diferencias son significativas)
+
+# Función que puede editarse para mejorar la edición de la figura
+source("anosim.r")
+
+# Figura del anosim
+x11()
+plot(aves.anosim,las=1, col= "bisque")
+
+
+#--------------------
+# 2) Análisis de permutación multi-respuesta - MRPP
+
+# MRPP
+aves.mrpp <- mrpp(aves.dist, aves$Dieta, permutations=1000)
+aves.mrpp
+
+
+#--------------------
+# 3) Permanova a 1 vía
+
+# Permanova para diferentes tipos de dieta (grupo:Dieta)
+aves.permanova<-adonis2(aves.dist~aves$Dieta,perm=1000)
+aves.permanova
+
+
+# PERMANOVA que valora al efecto de cada variable morfométrica
+names(aves)
+attach(aves)
+aves.permanova1<-adonis2(aves.dist ~ C.exp + C.tot + L.nar + A.nar + Com + L.tar +
+                       C.al + L.rec + L.tot, perm=1000)
+aves.permanova1
+
+
+# Pruebas Post Hoc del PERMANOVA
+# Prueba Post Hoc del PERMANOVA con el paquete "RVAideMemoire"
+pairwise.perm.manova(aves.dist,aves$Dieta,nperm=1000)
+
+
+
+
+
+#---------------
+# PERMANOVA Bifactorial
+
+# Llamar a la base de datos
+aves<-read.csv2("aves.csv",row.names=1)
+str(aves)
+
+#------
+# Ajuste de la base de datos
+
+# Datos sin columnas taxonómicas
+aves = aves[,-5]    # Eliminar la variable "Dieta.n"
+aves = aves[,c(1,4:13)]	# Selección de familias, dietas y variables morfométricas
+head(aves)
+
+# Resumir nombres de las variables
+colnames(aves) <- c("Familia", "Dieta", "C.exp", "C.tot", "L.nar", "A.nar",
+                    "Com", "L.tar", "C.al", "L.rec", "L.tot")
+
+# Seleccionar las tres familias del ejemplo
+Thraupidae = aves[aves$Familia == "THRAUPIDAE",]
+Trogloditydae = aves[aves$Familia == "TROGLODITYDAE",]
+Trochilidae = aves[aves$Familia == "TROCHILIDAE",]
+
+
+# Base de datos con las tres familias seleccionadas
+fam1 = full_join(Thraupidae, Trogloditydae) # Fusión de sitios y taxones
+aves1 = full_join(fam1, Trochilidae)
+head(aves1)
+
+# Crear un factor combinado (fam_diet)
+aves1 = aves1 %>% unite("fam_diet", Familia:Dieta, remove = FALSE)
+head(aves1)
+
+# Convertir las tres primeras columnas a factores
+aves1$fam_diet = as.factor(aves1$fam_diet)
+aves1$Familia = as.factor(aves1$Familia)
+aves1$Dieta = as.factor(aves1$Dieta)
+
+# Transformación logarítmica de las variables
+aves = log10(aves1[,4:12])
+attach(aves1)
+aves = data.frame(aves1[1:3], aves)
+str(aves)
+
+
+#--------------------
+# Permanova para tres familias y tres tipos de dieta 
+
+# Matriz de distancia euclídea
+aves.dist<-vegdist(aves[,c(4:12)],"euclid")
+
+
+# Permanova 
+attach(aves)
+aves.permanova<-adonis2(aves.dist ~ Familia + Dieta, perm=1000)
+aves.permanova
+
+
+# Pruebas Post Hoc del PERMANOVA
+# Prueba Post Hoc del PERMANOVA con el paquete "RVAideMemoire"
+pairwise.perm.manova(aves.dist,aves$fam_diet,nperm=1000)
+
+
+
+```
+

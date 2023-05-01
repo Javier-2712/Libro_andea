@@ -1,0 +1,399 @@
+---
+title: "Acítulo7.cla"
+author: "Javier Rodríguez Barrios"
+date: "4/7/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+# Llamar a la base de datos
+datos<- read.csv2("efem.csv", row.names=1)
+
+str(datos)
+
+#---------
+# LIBRERÍAS REQUERIDAS
+library(ellipse)
+require(gclus)
+require(SciViews)
+require(ade4)
+require(vegan)
+library(gplots)
+library(ggplot2)
+library(corrplot)
+library(factoextra)
+
+
+
+#==================================================================
+# SIETE (7) TIPOS DE CLUSTERS JERÁRQUICOS
+
+# PASO 1. Distancia entre observaciones
+# Matriz de distancia
+d.bray <- vegdist(datos[,4:11], method="bray")
+round(d.bray,2)
+
+#--------------
+# (1) Vecino más cercano "Cl.single", comando "hclust" y método "single"
+Cl.single <- hclust(d.bray,method="single")
+# Figura del dendograma generado
+x11()
+plot	(Cl.single, ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="",
+      main="Vecino más Cercano", cex.main=1.2,col.main=4,cex=0.8, sub="")
+
+
+# (2) Vecino más lejano "Cl.complete", función "complete"  
+Cl.complete<-hclust(d.bray,method="complete")
+# Figura del dendograma generado
+plot	(Cl.complete, ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="",
+      main="Vecino más Lejano", cex.main=1.2,col.main=4, cex=0.8, sub="")
+
+
+# (3) UPGMA función "average" Unión Promedio no Ponderado
+Cl.upgma<-hclust(d.bray,method="average")
+# Figura del dendograma generado
+plot	(Cl.upgma,ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="", cex=0.8,
+      main="Unión Promedio no Ponderada (UPGMA)", cex.main=1.2,col.main=4,
+      sub="")
+
+#---------------
+x11()
+par(mfrow=c(2,2))
+
+# (4) WPGMA función "mcquitty"
+Cl.wpgma<-hclust(d.bray,method="mcquitty")
+plot(Cl.wpgma,ylab="Distancia Bray Curtis",cex.lab=1.2,xlab="",sub="",cex=0.8,
+     main="Union Promedio Ponderada (WPGMA)", cex.main=1.2,col.main=4)
+     
+
+# (5) UPGMC función "centroid"
+Cl.upgmc<-hclust(d.bray,method="centroid")
+plot(Cl.upgmc,ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="",sub="",cex=0.8,
+     main="Union Centroide no Ponderada (UPGMC)", cex.main=1.2,col.main=4)
+
+
+# (6) WPGMC función "median"
+Cl.median<-hclust(d.bray,method="median")
+plot(Cl.median,ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="",sub="",cex=0.8,
+     main="Unión Centroide Ponderado (WPGMC)", cex.main=1.2,col.main=4)
+
+
+# (7) WARD, función "ward"
+Cl.ward<-hclust(d.bray,method="ward.D")
+plot(Cl.ward,ylab="Distancia Bray Curtis", cex.lab=1.2,xlab="",sub="",cex=0.8,
+     main="Union de Ward (WARD)", cex.main=1.2,col.main=4)
+
+par(mfrow=c(1,1))
+
+#------------------------------------- 
+# PAO 2. Seleccionar mejor método de agrupación
+# CORRELACIONES COFENÉTICAS 
+   
+# (1) Correlación cofenética  para "single"
+cofenet1 <- cophenetic(Cl.single)
+cor(d.bray,cofenet1)
+
+# (2) Correlación cofenética  para "complete"
+cofenet2<-cophenetic(Cl.complete)
+cor(d.bray,cofenet2)
+
+# (3) Correlación cofenética  para "average"
+cofenet3<-cophenetic(Cl.upgma)
+cor(d.bray,cofenet3)
+
+# (4) Correlación cofenética  para "mcquitty"
+cofenet4<-cophenetic(Cl.wpgma)
+cor(d.bray,cofenet4)
+
+# (5) Correlación cofenética  para "centroid"
+cofenet5<-cophenetic(Cl.upgmc)
+cor(d.bray,cofenet5)
+
+# (6) Correlación cofenética  para "mmedian"
+cofenet6<-cophenetic(Cl.median)
+cor(d.bray,cofenet6)
+
+# (7) Correlación cofenética  para "ward"
+cofenet7<-cophenetic(Cl.ward)
+cor(d.bray,cofenet7)
+
+# data frame con cofenéticos
+cofeneticos = data.frame(simple=cor(d.bray,cofenet1),compl=cor(d.bray,cofenet2),
+                         upgma=cor(d.bray,cofenet3),upgmc=cor(d.bray,cofenet4),
+                         wpgma=cor(d.bray,cofenet5),wpgmc=cor(d.bray,cofenet6),
+                         ward=cor(d.bray,cofenet7))
+cofeneticos
+
+# cofenéticos por cada métodos (Met)
+cofenet=data.frame(Met = 1:7,Cofen=t(round(cofeneticos,3)))
+cofenet
+
+# tabla con orden descendente de cofenéticos
+cof_ordenado = cofenet[order(cofenet$Cofen, decreasing = TRUE), ]
+cof_ordenado
+
+# guardar tabla como csv
+write.csv2(cof_ordenado,"cofenet.csv")
+
+
+
+#-------------------------------------
+# Figuras correlaciones cofenéticas
+x11()
+par(mfrow=c(2,2))
+# (1) distancia cofenética  para "single" 
+plot1<-plot(d.bray,cofenet1,
+            xlab="Distancia Bray Curtis",ylab="Distancia Cofenética",
+            main=c("Unión Simple",paste("Correlación Cofenética",
+            round(cor(d.bray,cofenet1),3))))
+            abline(0,1)
+            lines(lowess(d.bray,cofenet1),col=2)
+# (2) Correlación cofenética  para "complete"
+plot2<-plot(d.bray,cofenet2,
+            xlab="Distancia Bray Curtis",ylab="Distancia Cofenética",
+            main=c("Unión Completa",paste("Correlación Cofenética",
+            round(cor(d.bray,cofenet2),4))))
+            abline(0,1)
+            lines(lowess(d.bray,cofenet2),col=2)
+# (3) Correlación cofenética  para "average"
+plot3<-plot(d.bray,cofenet3,
+            xlab="Distancia Bray Curtis",ylab="Distancia Cofenética",
+            main=c("Unión Promedio no Ponderada-UPGMA",paste("Correlación Cofenética",
+            round(cor(d.bray,cofenet3),4))))
+            abline(0,1)
+            lines(lowess(d.bray,cofenet3),col=2)
+# (4) Ccorrelación cofenética  para "mcquitty"
+plot1<-plot(d.bray,cofenet4,
+            xlab="Distancia Bray Curtis",ylab="Distancia Cofenética",
+            main=c("Unión Promedio Ponderada-WPGMA",paste("Correlación Cofenética",
+            round(cor(d.bray,cofenet4),3))))
+            abline(0,1)
+            lines(lowess(d.bray,cofenet4),col=2)
+par(mfrow=c(1,1))
+
+
+
+# ------------------------------------------------------------------
+# PASO 3. Número de grupos formados - Opción 1 (Niveles de Fusión)
+
+# Grafico para valores de niveles de fusión
+x11()
+plot(Cl.upgma$height, nrow(datos):2, type="S", 
+	main="Niveles de fusión - Distancia Bray - UPGMA", 
+	ylab="k (Número de Cluster)", xlab="h (Altura del Nodo)", col="grey")
+  text(Cl.upgma$height, nrow(datos):2, nrow(datos):2, col="red", cex=0.7)
+
+# La figura muestra el escalón más prolongado en 2 grupos
+
+
+# ------------------------------------------------------------------
+# PASO 3. Número de grupos formados - Opción 2 (Amplitud de Silueta)
+# Número optimo de clusters de acuerdo al Ancho de silueta
+# Índice de calidad de Rousseeuw      
+
+# 1. Crear un vector vacío (datos.vacio) con asw valores
+datos.vacio <- numeric(nrow(datos))
+
+# 2. Silueta "sil" 
+for(k in 2: (nrow(datos)-1)){
+    sil <- silhouette(cutree(Cl.upgma,k=k),d.bray)
+    datos.vacio[k]<-summary(sil)$avg.width} 
+
+# 3. Mejor o mayor amplitud de silueta (2 particiones)
+k.mejor <- which.max(datos.vacio)
+k.mejor 
+
+# Grafica de silueta
+plot(1:nrow(datos),datos.vacio,type="h",
+     main="Silueta - Número Optimo de Clusters", xlab="(número de grupos)",
+     ylab="Amplitud promedio de  silueta")
+     
+axis(1,k.mejor,paste("optimo",k.mejor,sep="\n"),col="red",
+     font=2,col.axis="red")
+     
+points(k.mejor,max(datos.vacio),pch=16,col="red",cex=1.5)
+
+# Insumos numéricos del método de silueta
+cat("","Silueta - Número Optimo de Clúster k=",k.mejor,
+    "\n","Con una amplitud promedio de silueta=",max(datos.vacio),"\n")
+
+
+
+
+#--------------------------
+# PASO 3. Opción 3 - Método de partición con algoritmo PAM
+# Partición de cluster de tipo no jerárquico
+
+source("función_silueta.r")
+
+# Figura de Amplitud Promedio de Silueta
+x11()
+fviz_nbclust(datos[,4:11], FUN = pam, method = "silhouette") +
+  theme_classic()
+
+# Resultados del algoritmo PAM
+pam.res <- pam(datos, 3)
+print(pam.res)
+
+# Máxima amplitud de silueta promedio
+max.sil= pam.res$silinfo$avg.width
+max.sil
+
+# Grupos formados
+k.mejor = pam.res$call$k
+k.mejor
+
+# Insumos numéricos del método de silueta
+cat("","Silueta - Número Optimo de Clúster k=",k.mejor,
+    "\n","Con una amplitud promedio de silueta=",max.sil,"\n")
+
+
+# Visualización del cluster del algoritmo PAM
+x11()
+fviz_cluster(pam.res,
+             palette = c("#00AFBB", "#FC4E07", "#E7B800"), # Paleta de colores
+             ellipse.type = "t", # Grafica de elipses
+             repel = TRUE, # elimina rotulos solapados en la figura
+             ggtheme = theme_classic())
+
+
+
+#-----------------------------
+# PASO 3. Otros métodos basados en particiones jerárquicas
+
+# 1. Promedio de siluetas
+x11()
+# Opción 1
+fviz_nbclust(datos[,4:11], FUN = hcut, method = "silhouette")
+# Opción 2
+fviz_nbclust(datos[,4:11], FUN = kmeans, method = "silhouette")+
+  labs(subtitle = "Método de Silueta")
+
+
+# 2. Método de codo
+# Opción (conociendo al número de k grupos)
+fviz_nbclust(datos[,4:11], kmeans, method = "wss") +
+  geom_vline(xintercept = 3, linetype = 2)+
+  labs(subtitle = "Método de Codo")
+
+
+# 3. Estadística con intervalos
+# Opción 1
+gap_stat <- clusGap(datos[,4:11], FUN = hcut, nstart = 25, K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+
+# Opción 2 (conociendo al número de k grupos)
+set.seed(123)
+fviz_nbclust(datos[,4:11], kmeans, nstart = 25, method = "gap_stat", nboot = 50)+
+  labs(subtitle = "Método de Intervalos")
+
+
+
+
+# -------
+# Dendograma final
+# Figura
+x11()
+plot (Cl.upgma,ylab="Distancia Bray Curtis", 	# Rotulo de la distancia
+  	cex.lab=1.2,xlab="",			# tamaño del texto de los ejes
+     	main="Union Promedio no Ponderada (UPGMA)", 	# Rotulo de título
+cex.main=1,			# tamaño del texto del título
+    	sub="",hang=-1, cex=0.7)   	# hang= -1 para alinear las ramas      
+rect.hclust(Cl.upgma,k=3,border = 2)	# Rectángulos de cada grupo
+
+# Opción 2
+fviz_dend(Cl.upgma, k = 3,              # k grupos
+          cex = 0.5,                    # tamaño del texto de las observaciones
+          ylab = "Distancia Bray Curtis",	# Rotulo de la distancia
+          main = "Unión Promedio no Ponderada (UPGMA)",	# Rotulo de título
+          lower_rect = 0,			# Inicio de los rectángulos en cero
+          k_colors = c("#2E9FDF","#00AFBB","#FC4E07"),
+          color_labels_by_k = TRUE,    # Colores para cada grupo
+          rect = TRUE)                 # Rectángulos de cada grupo
+
+              # Add rectangle around groups
+
+# Opción 3 (Clúster no jerárquico)
+grp <- cutree(Cl.upgma, k = 3)           # Grupos generados “grp”	
+fviz_cluster(list(data = datos[,4:11], cluster = grp),
+             palette = c("#2E9FDF", "#00AFBB", "#FC4E07"),  # Colores para cada grupo
+             ellipse.type = "convex",          # Elípses
+             repel = TRUE,                 # Eliminar solapamiento de observaciones
+             show.clust.cent = FALSE,      # Muestra a los clúster centrados
+		 ggtheme = theme_minimal())	
+
+
+
+#------------------------
+# PASO 4. Variables que mejor clasifican (Mapas de Calor)
+
+# Base de datos sin row.names=1
+datos1<-read.csv2("efem.csv")	# Llamar nuevamente la base de datos sin row.names=1
+str(datos1)	# Estructura de la base de datos.
+
+# Transformación de Hellinger (datos), para linealizar a las variables
+datos=decostand(datos1[,c(5:12)],method="total")
+
+# Selección de las variables cuantitativas en formato matricial       
+datos2<-as.matrix(datos)
+round(datos2,2)
+
+# Selección de la primera columna para graficar a las observaciones (tramos y muestreos)
+rownames(datos2)<-datos1[,1]
+round(datos2,2)
+
+# 1. Mapa de calor por cada observación, con el paquete stats
+hv <- heatmap(datos2, margins=c(6,5), xlab ="Taxones de Efemerópteros", 
+              ylab= "Tramos y muestreos en el Río", main = "Caracterización de Tramos",
+              scale = "column",distfun = vegdist, method="average")
+
+
+help(heatmap)
+
+
+
+#-----------------
+# 2. Mapa de calor para los promedios de cada tramo del río.
+datos<-read.csv2("efem.csv", row.names=1)	# Llamar a la base de datos con row.names=1
+datos<-na.exclude(datos)
+attach(datos)
+
+# Transformación de Hellinger (datos), para linealizar a las variables
+datos1=decostand(datos[,c(4:11)],method="total")
+
+
+# Cálculo de las medias para cada tramo del río
+datos1<- aggregate(datos1,na.rm=TRUE, 
+                   by=list(Tramo=datos$TRAMO),mean)
+
+# Selección de las variables cuantitativas en formato matricial       
+datos2<-as.matrix(datos1[,2:9])
+round(datos2,2)
+
+# Selección de la primera columna para graficar a las observaciones (tramos)
+rownames(datos2)<-datos1[,1]
+round(datos2,2)		# Visualización de los datos
+
+#--------------
+# 1. Mapa de calor con los promedios de abundancia por tramos - paquete vegan
+x11()
+hv <- heatmap(datos2, margins=c(6,5), distfun = vegdist,
+              xlab ="Taxones de Efemerópteros", 
+              ylab= "Tramos del Río", main = "Caracterización de Tramos")    
+
+
+
+#--------------
+# 2. Mapa de calor con los promedios de abundancia por tramos - paquete gplots
+dev.new(title = "Mapa de calor",width = 10,noRStudioGD = TRUE)
+x11()
+hclust.ave <- function(datos2) hclust(datos2, method="average")
+heatmap.2(datos2, scale = "none", col = bluered(100), 
+          xlab ="Taxones de Efemerópteros", 
+          ylab= "TRamos del Río", main = "Caracterización de Tramos",
+          trace = "none", density.info = "none",distfun = vegdist,
+          margins=c(6,5), hclustfun=hclust.ave)
+
+```
+

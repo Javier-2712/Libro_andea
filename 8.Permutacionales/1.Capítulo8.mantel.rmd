@@ -1,0 +1,169 @@
+---
+title: "Capítulo8.mantel"
+author: "Javier Rodríguez Barrios"
+date: "5/7/2022"
+output:
+  html_document: default
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+# En este ejercicio se realizarán las pruebas MANTEL y BIOENV
+
+# Llamar en R a la base de datos "Microalgas.csv".
+datos<-read.csv2("Microalgas.csv",row.names=1)  
+
+# Librerías requeridas
+library(ade4)
+library(vegan)
+library(MASS)
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+library(ggforce)
+
+#-------------
+# Ajuste de las bases de datos biológica (tax) y fisiqcoquimica (amb)
+datos$Tributario = as.factor (datos$Tributario)   	# Convertir Tributario a factor
+
+# Variables ambientales
+amb=log10(datos[,c(2:11)]+1)
+
+# taxones de microalgas
+tax=datos[,c(12:32)]
+
+
+#-----------------------------
+# Ordenación de los datos usando ggplot2
+
+# Desarrollo del NMDS
+# Correr el Escalamiento - NMDS
+datos.nmds <- metaMDS(datos[,12:32],trace = FALSE, distance = "bray")
+
+# 1) Coordenadas de los sitios y el factor (coord.sit)
+coord.sit <- as.data.frame(datos.nmds$points)   # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)          # Crear una columna con nombres de los sitios
+coord.sit$Tributario <- datos$Tributario        # Adicionar columna de grupos por Tributario
+head(coord.sit)                                 # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de las especies (coord.tax) 
+coord.tax <- as.data.frame(datos.nmds$species)  # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)       # Insertar columna con nombres de los taxones
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales "coord.amb"
+amb1 = envfit(datos.nmds,amb) 
+coord.amb = as.data.frame(scores(amb1, "vectors"))
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+head(coord.amb) 
+
+
+# 4) Opciones Gráficas del nMDS
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(MDS1,MDS2,label = as.character(coord.sit$sitio)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(MDS1,MDS2,colour=Tributario),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones   
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = MDS1, yend = MDS2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(MDS1,MDS2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+               type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(NMDS1,NMDS2,label=row.names(coord.amb)),colour = "#00abff")+
+  
+  #Factor - Tributarios
+  geom_mark_hull(data=coord.sit, aes(x=MDS1,y=MDS2,fill=Tributario,group=Tributario,
+                                      colour=Tributario),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank()) 
+
+
+
+
+#----------------------
+# Desarrollo de la prueba Mantel
+
+datos.dis <- vegdist(tax, "bray")		# Matriz de distancia para los taxones
+datos.amb.dis <- vegdist(amb,"euclid")	# Matriz de distancia para las variables ambientales
+mantel (datos.amb.dis, datos.dis, method= "spearman", permutations=1000)	# MANTEL
+
+
+
+
+#----------------------
+# Desarrollo de la prueba Bioenv
+Bioenv <- bioenv(tax, amb,
+                 method = "spearman", index = "bray",
+                 upto = ncol(amb), 
+                 trace = FALSE,partial = NULL)
+Bioenv
+summary(Bioenv)
+# las mejores variables son 4 (Amonio, Nitrito, pH y Luz)
+
+
+
+
+#----------------------
+# Escalamiento con las variables ambientales seleccionadas - NMDS
+datos.nmds1 <- metaMDS(datos[,12:32],trace = FALSE, distance = "bray")
+datos.nmds1
+
+# 1) Coordenadas de los sitios y el factor (coord.sit)
+coord.sit <- as.data.frame(datos.nmds1$points)   	# Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)          	# Crear una columna con nombres de los sitios
+coord.sit$Tributario <- datos$Tributario                  	# Adicionar columna de grupos por región
+head(coord.sit)                                 # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de las especies (coord.tax) 
+coord.tax <- as.data.frame(datos.nmds1$species)  # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)    # Insertar columna con nombres de los taxones
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales seleccionadas en el BIOENV "coord.amb"
+amb1 = envfit(datos.nmds1,amb[,c(1,2,5,9)]) # Variables seleccionadas
+coord.amb = as.data.frame(scores(amb1, "vectors"))
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+head(coord.amb) 
+
+
+# 4) Opciones Gráficas del nMDS
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(MDS1,MDS2,label = as.character(coord.sit$sitio)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(MDS1,MDS2,colour=Tributario),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones   
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = MDS1, yend = MDS2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(MDS1,MDS2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = NMDS1, yend = NMDS2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+               type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(NMDS1,NMDS2,label=row.names(coord.amb)),colour = "#00abff")+
+  
+  #Factor - Tributarios
+  geom_mark_hull(data=coord.sit, aes(x=MDS1,y=MDS2,fill=Tributario,group=Tributario,
+                                      colour=Tributario),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())  
+
+```
+

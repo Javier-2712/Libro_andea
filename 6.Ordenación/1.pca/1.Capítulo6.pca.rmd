@@ -1,0 +1,512 @@
+---
+title: "Capítulo6"
+author: "Javier Rodríguez Barrios"
+date: "26/6/2022"
+output:
+  html_document: default
+---
+
+# Ejemplo 1.  PCA CON VARIABLES AMBIENTALES
+
+```{r, message= FALSE, warning= FALSE}
+#---------------------------------------------
+# Lectura de la base de datos "FQmarino"
+datos <-read.csv2("FQmarino.csv",row.names=1)
+
+#---------------------
+# Informción de la base de datos
+round(head(datos),2)
+
+# Estructura 
+str(datos)
+
+
+#  
+str(datos)
+# Resumen 
+summary(datos)
+
+#---------------------
+# LIBRERÍAS REQUERIDAS
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+library(vegan)
+library(ade4)
+library(FactoMineR)
+library(factoextra)
+library(devtools)
+# install_github("vqv/ggbiplot")   # Escoger la Opción 1. *Instalar solo una vez.
+# library(ggbiplot)
+library(ggsci)
+library(ggforce)
+library(concaveman)
+
+
+
+# ----------------
+# 1) pca con el paquete stats
+pca1 <- princomp(datos,cor=TRUE)
+
+# Ajuste del PCA mediante los autovalores
+summary(pca1)
+
+# Insumos del pca (names)
+names(pca1)
+
+round(pca1$loadings,2)   # Autovalores (loadings)
+round(pca1$scores,2)     # Coordenadas de las localidades (Scores)
+
+
+# Contribución de los ejes del pca
+x11()
+screeplot(pca1,ylab="Varianza",main="",
+          cex.lab=1.5, col="lightblue")
+
+# Figura del biplot del PCA. 
+biplot(pca1,choices = 1:2, cex=0.9)
+biplot(pca1,choices = 2:3, cex=0.9)
+biplot(pca1,choices = c(1,3), cex=0.9)
+abline(v=0,lty=2, col=4)
+abline(h=0,lty=2, col=4)
+
+
+#----------------------
+# 2) PCA con el paquete FactoMiner
+
+# Insertar las variables al PCA
+names(datos)
+datos.PCA<-datos[, c("pH", "Cond", "Turbidez", "Temp", "Salinidad",
+                     "CapaFotica", "Oxigeno")]
+
+# PCA con escalamiento de las variables (similar a la matriz de correlación)              
+pca2<-PCA(datos.PCA , scale.unit=TRUE, ncp=5, graph = FALSE)
+
+# Figura del PCA 
+plot.PCA(pca2, axes=c(1, 2), choix="ind", habillage="none", col.ind="black", 
+         col.ind.sup="blue", col.quali="magenta", 
+         label=c("ind", "ind.sup", "quali"))
+
+# Circulo de contribuciones de las variables                                                                   
+plot.PCA(pca2, axes=c(1, 2), choix="var", col.var="#ff0000", new.plot=T,
+         col.quanti.sup="blue", label=c("var", "quanti.sup"), lim.cos2.var=0)
+
+
+# Selección de variables a partir del PCA
+dimdesc=dimdesc(pca2, axes=1:2)
+round(dimdesc$Dim.1$quanti,4)
+
+
+#--------------
+# 3) PCA con el paquete vegan
+pca3 <- rda(datos[,c(1:7)], scale = TRUE) 
+
+
+# Insumos del análisis
+summary(pca3)
+
+# Autovalores
+round((ev <- pca3$CA$eig),2)
+
+# Figura del PCA
+x11(12,6)
+par(mfrow=c(1,2))
+biplot(pca3, scaling=1, main="PCA - scaling 1")
+biplot(pca3, main="PCA - scaling 2")  
+
+
+# Ajuste de los componentes principales
+round((av <- pca3$CA$eig),2)
+round(av[av > mean(av)],2)
+
+n <- length(av)
+vq <- data.frame(j=seq(1:n), p=0)
+vq$p[1] <- 1/n
+for (i in 2:n) {
+  vq$p[i] = vq$p[i-1] + (1/(n + 1 - i))
+}
+vq$p <- 100*vq$p/n
+vq
+
+
+# Figura de atovalores
+windows(title="Autovalores del PCA")
+par(mfrow=c(2,1))
+
+# a. Figura del modelo de Kaiser
+barplot(av, main="Valores Propios", col="bisque", las=2)
+abline(h=mean(av), col="red")	
+legend("topright", "Promedio de autovalores", lwd=1, col=2, bty="n")
+
+# b. Figura del modelo de Vara Quebrada
+barplot(t(cbind(100*av/sum(av),vq$p[n:1])), beside=TRUE, main="% Varianza", col=c("bisque",2), las=2)
+legend("topright", c("% Autovalores", "Modelo Vara Quebrada"), pch=15, col=c("bisque",2), bty="n")
+
+
+
+#---------------------
+# Combinación de clasificación y ordenación
+
+datos.w <- hclust(dist(scale(datos[,c(1:7)])), "ward.D")
+
+# Cortar la clasificación en 2 grupos
+gr <- cutree(datos.w, k = 2)
+grl <- levels(factor(gr))
+
+# Extraer los escores de los sitios
+sit.sc1 <- scores(pca3, display = "wa", scaling = 1)
+
+# Graficar los sitios, con simbolos y colores 
+x11()
+p <- plot(pca3,  display = "wa",  scaling = 1,  type = "n",
+          main = "PCA correlation + clusters")
+abline(v = 0, lty = "dotted")
+abline(h = 0, lty = "dotted")
+
+for (i in 1:length(grl)) {
+  points(sit.sc1[gr == i, ],
+         pch = (14 + i),
+         cex = 2,
+         col = i + 1)
+}
+
+# Agregar números de los sitios
+text(sit.sc1, row.names(datos), cex = 0.7, pos = 3)
+
+# Adicionar el dendograma
+ordicluster(p, datos.w, col = "dark grey")
+
+# Adicionar la leyenda de la figura
+legend(locator(1),
+       paste("Grupo", c(1:length(grl))),
+       pch = 14 + c(1:length(grl)),
+       col = 1 + c(1:length(grl)),
+       pt.cex = 2)
+
+
+
+#---------------------
+# PCA con factor generado en el cluster anterior
+
+# Cluster con ward
+datos.w <- hclust(dist(scale(datos)), "ward.D")
+
+# Generar 4 grupos (factor gr)
+gr <- cutree(datos.w, k = 2)
+
+# Base de datos con el factor agrupador
+datos.gr=data.frame(gr,datos)
+datos.gr$gr=as.factor(datos.gr$gr)  # crear los grupos como factor
+datos.gr
+write.csv2(datos.gr,"env.gr.csv")
+str(datos.gr)
+
+#---------------------
+# 4) PCA por tipos con la función "dudi.pca" del paquete ade4
+
+pca4<-dudi.pca(datos[,c(1:7)],scannf=F,nf=2,scale=T)
+
+# figuras por tipo de dieta
+names(datos)
+x11()
+s.class(pca4$li,datos.gr$gr,cpoint=1)
+s.class(pca4$li,datos.gr$gr, cpoi = 2)
+s.class(pca4$li,datos.gr$gr, cell = 0, cstar = 0.5)
+coul <- c("red",  "blue")
+s.chull(pca4$li,datos.gr$gr, cpoi = 1, col = coul)
+```
+
+# EJEMPLO 2. PCA CON VARIABLES AMBIENTALES Y BIOLÓGICAS
+
+```{r, message= FALSE, warning= FALSE}
+
+# Base de datos
+datos<-read.csv2("Tayrona.csv",row.names=1)
+
+#------------------
+# Librerías requeridas
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+library(vegan)
+library(factoextra)
+library(devtools)
+# install_github("vqv/ggbiplot")   # Escoger la Opción 1. *Instalar solo una vez.
+# library(ggbiplot)
+library(ggsci)
+library(ggforce)
+library(concaveman)
+
+
+#----------------
+# Ajuste de las bases de datos fisiqcoquimica (amb) y biológica (tax.hel) 
+
+str(datos)    # Estructura de la base de datos
+datos$Epoca = as.factor (datos$Epoca)   # Convertir Epoca a factor
+str(datos)    # Nueva estructura de la base de datos
+
+# Variables ambientales
+amb=log10(datos[,c(2:12)]+1)
+amb
+
+# Variables biológicas linealizadas - Taxones con Hellinger
+tax.hel=decostand(datos[,c(13:63)],"hellinger")
+tax.hel
+
+
+
+
+#------------------
+# 1) PCA con paquete factoextra
+pca <- prcomp(amb,scale.=T)
+summary(pca)
+
+# Contribución eje 1
+x11()
+fviz_contrib(pca,choice="var",axes=1,
+      title = "Contribuciones al Componente 1")
+
+# Elipses por cada periodo climático
+fviz_pca_ind(pca, geom.ind = "point", 
+             col.ind = datos$Epoca, # Colores por periodo
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, ellipse.type = "confidence",
+             legend.title = "Grupos", title = "PCA - Biplot",
+ )
+
+# Figura convexa por cada periodo climático
+fviz_pca_ind(pca, geom.ind = "point",
+             col.ind = datos$Epoca, # Colores por periodo
+             palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, ellipse.type = "convex",
+             legend.title = "Grupos",
+             title = "PCA - Plot",
+)
+
+
+# PCA con las observaciones (sitios) y las variables
+fviz_pca_biplot(pca, repel = TRUE,
+                col.var = "#2E9FDF", # Color de las variables
+                col.ind = "#696969", # Color de las observaciones
+                title = "PCA - Bilot"
+)
+
+# Colores de las observaciones por cada periodo climático
+fviz_pca_biplot(pca,geom="text",co.vat="blue",axes = c(1,2),
+                habillage = factor(datos$Epoca),addEllipses = T)+
+  labs(x="PC1 (41.7 %)",y="PC2 (32,1 %)")+
+  theme_bw()
+
+# Colores de las observaciones por cada periodo climático 
+fviz_pca_biplot(pca, 
+                col.ind = datos$Epoca, palette = "jco", 
+                addEllipses = TRUE, label = "var",
+                col.var = "black", repel = TRUE,
+                legend.title = "Epocas")
+
+# Escala de contribuciones de las observaciones y las variables
+fviz_pca_biplot(pca, 
+                # Observaciones (Sitios)
+                geom.ind = "point",
+                fill.ind = datos$Epoca, col.ind = "black",
+                pointshape = 21, pointsize = 2,
+                palette = "jco",
+                addEllipses = TRUE,
+                # Variables
+                alpha.var ="contrib", col.var = "contrib",
+                gradient.cols = "RdYlBu",
+                legend.title = list(fill = "Epocas", color = "Contrib",
+                                    alpha = "Contrib"))
+
+
+
+
+
+
+
+
+#------------------
+# 3) pca con vegan
+# Realización del PCA para extraer las coordenadas ambientales
+pca <- rda(tax.hel)
+summary(pca)
+
+biplot(pca, choices = c(1, 2),type = "n",scaling =2,
+       main="PCA - Scaling 2",cex=2)   # Panel gráfico
+text(pca, display="sites", cex=0.8, 
+     col="blue", lwd=1.5, pos=3)       # Figura de sitios y épocas
+ordi=orditorp(pca, display = "species", 
+     shrink = FALSE, col = "red", type="n") # Taxones Filtrados
+points(pca, display = "sites",            
+      cex = 0.6, col = "lightblue", lwd=1.5)  # Opcional - puntos de muestreo
+amb1 = envfit(pca,amb)    # Insertar variables ambientales en el pca
+plot(amb1,col=4,cex=0.7)
+
+
+
+
+#------------------
+# 5) PCA con paquete ggplot2
+
+# Realización pca de los paquetes factoextra y ggbiplot 
+# Para gererar las coordenadas de los sitios y taxones
+pca <- prcomp(tax.hel)
+
+# 1) Coordenadas de los sitios y el factor "coord.sit"
+coord.sit <- as.data.frame(pca$x[,1:2])     # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)      # Crear una columna con nombres de los sitios
+coord.sit$grp <-  datos$Epoca               # Adicionar columna de grupos por Epoca
+head(coord.sit)                             # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de los taxones "coord.tax"
+coord.tax <- as.data.frame(pca$rotation[,1:2])    # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)         # Insertar columna con nombres de las especies
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales "coord.amb"
+amb1 = envfit(pca,amb) 
+coord.amb = as.data.frame(scores(amb1, "vectors"))
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+head(coord.amb) 
+
+
+# 3.1) Figura con vectores de especies
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(PC1,PC2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(PC1,PC2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(PC1,PC2,label=especies),colour = "red")+
+  # Factor
+  geom_polygon(data=coord.sit,aes(x=PC1,y=PC2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.2) Figura con vectores de especies (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(PC1,PC2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(PC1,PC2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+               type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(PC1,PC2,label=especies),colour = "red")+
+  # Factor
+  geom_polygon(data=coord.sit,aes(x=PC1,y=PC2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+
+# 3.3) Figura con con elipses - geom_mark_ellipse
+library(ggsci)
+library(ggforce)
+# install.packages('Rcpp') # Reinstalar si es necesario
+library(Rcpp)
+
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(PC1,PC2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(PC1,PC2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(PC1,PC2,label=especies),colour = "red")+
+  # Factor
+  geom_mark_ellipse(data=coord.sit,aes(x=PC1, y=PC2, 
+                    colour=grp,fill=after_scale(alpha(colour, 0.2))), 
+                    expand=0, size=0.2) +
+    
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.4) Figura con de elipses por concavidades - geom_mark_hull
+library(ggforce)
+library(concaveman)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(PC1,PC2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(PC1,PC2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(PC1,PC2,label=especies),colour = "red")+
+  # Factor
+  geom_mark_hull(data=coord.sit, aes(x=PC1,y=PC2,fill=grp,group=grp,
+                                     colour=grp),alpha=0.30)  +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+
+# 3.3 Figura con vectores de especies y ambientales
+library(ggrepel)
+
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(PC1,PC2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(PC1,PC2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(PC1,PC2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = PC1, yend = PC2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(PC1,PC2,label=row.names(coord.amb)),colour = "#00abff")+
+  # Factor
+  geom_polygon(data=coord.sit,aes(x=PC1,y=PC2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+```
+
+

@@ -1,0 +1,318 @@
+---
+title: "Capítulo6.mca"
+author: "Javier Rodríguez Barrios"
+date: "1/7/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+#----------------------
+# Lectura de la base de datos
+bagres = read.csv2("bagres.r.csv")
+str(bagres)
+head(bagres[,2:6])  # Registro de 5 de las 22 variables del ejercicio
+
+# Librerías requeridas
+library("FactoMineR")
+library("factoextra")
+
+#-------------
+# Ajuste de las bases de datos de peces (bagres)
+# Seleccionar solo las variables activas (datos.activos)
+datos.activos=bagres[,c(1,4:22)]
+str(datos.activos)
+
+# Convertir las variables a factores (variables activas)
+names(datos.activos)
+
+datos.activos$Especie.abr=as.factor(datos.activos$Especie.abr)
+datos.activos$Especie=as.factor(datos.activos$Especie)
+datos.activos$Nombre.vernacular=as.factor(datos.activos$Nombre.vernacular)
+datos.activos$Importado=as.factor(datos.activos$Importado)
+datos.activos$Origen=as.factor(datos.activos$Origen)
+datos.activos$Destino=as.factor(datos.activos$Destino)
+datos.activos$Tipo.prod=as.factor(datos.activos$Tipo.prod)
+datos.activos$Proveedor=as.factor(datos.activos$Proveedor)
+datos.activos$Sit.comp=as.factor(datos.activos$Sit.comp)
+datos.activos$Frec.compra=as.factor(datos.activos$Frec.compra)
+datos.activos$Transform=as.factor(datos.activos$Transform)
+datos.activos$Conserv=as.factor(datos.activos$Conserv)
+datos.activos$Empaque=as.factor(datos.activos$Empaque)
+datos.activos$Transporte=as.factor(datos.activos$Transporte)
+datos.activos$Cliente.prim.=as.factor(datos.activos$Cliente.prim.)
+datos.activos$Cliente.sec.=as.factor(datos.activos$Cliente.sec.)
+datos.activos$Cliente.ter.=as.factor(datos.activos$Cliente.ter.)
+
+# Requerido para mca que incluya observaciones (columna 1)
+datos.activos.1 = datos.activos[,1:20]
+str(datos.activos.1)
+
+# Base de variables categóricas activas (datos.activos)
+# Incluye a dos variables complementarias (Venta.kg  y Precio.venta)
+datos.activos = datos.activos[,2:20]
+str(datos.activos)
+
+
+
+
+#----------------
+# MCA con los paquetes "FactoMiner y factoextra"
+# Las columnas 1:5 no corresponden a variables activas ara el MCA
+pez.mca <- MCA(datos.activos.1[,c(7:20)], graph = FALSE)
+summary(pez.mca)
+head(pez.mca$eig)
+
+# Figura de autovalores (para la escogencia de variables)
+x11()
+fviz_screeplot(pez.mca, addlabels = TRUE, ylim = c(0, 20),
+               ylab = "% Varianza explicada", xlab = "Dimensiones",
+               col="steelblue")
+
+# Figura de relación de las variables categóricas
+fviz_mca_var(pez.mca, choice = "mca.cor", repel = TRUE, 
+             ggtheme = theme_minimal())
+
+# Figura de relación de las variables categóricas + categorías de c/u
+fviz_mca_var(pez.mca, repel = TRUE,           # Repel evita superposición de texto
+             ggtheme = theme_minimal())       # theme_minimal: Comprime relaciones de variables y de observaciones
+
+# Figura de relación de las observaciones (registros de peces)
+rownames(datos.activos.1)<-datos.activos.1[,1] 
+fviz_mca_ind(pez.mca, repel = TRUE,           # Repel evita superposición de texto
+             ggtheme = theme_minimal(),
+             geom = c("point","text"))       # theme_minimal: Comprime relaciones de variables y de observaciones
+
+
+# Figura del Biplot de ordenación registros de peces y de variables
+fviz_mca_biplot(pez.mca, choice = "mca.cor",repel = TRUE,          
+                ggtheme = theme_minimal())
+
+# Figura del Biplot de ordenación para registros de peces y categorías de las variables
+fviz_mca_biplot(pez.mca, repel = TRUE,       
+                ggtheme = theme_minimal())
+
+
+#-----------------------
+# Contribuciones de variables y registros de peces, con cos2
+
+# Contribuciones de las observaciones
+fviz_mca_ind(pez.mca, col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE, 
+             ggtheme = theme_minimal())
+
+# Contribuciones de las variables categóricas
+fviz_mca_var(pez.mca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, ggtheme = theme_minimal())
+
+# Relación de las variables en las primeras dimensiones 
+fviz_cos2(pez.mca, choice = "var", axes = 1:2, top=20)
+
+
+#-----------------
+# Contribución de las variables categóricas para definir los ejes (dim)
+# Define a las contribuciones por cada eje canónico
+# Las varibables de mayor contribución explican mejor la variación de los datos
+
+# Contribución de las 20 mejores variables a la dimensión 1
+fviz_contrib(pez.mca, choice = "var", axes = 1, top = 20)
+# La línea punteada roja indica la contribución promedio esperada
+
+# Contribución de las 20 mejores variables a la dimensión 2
+fviz_contrib(pez.mca, choice = "var", axes = 2, top = 20)
+
+# Figura de cotribuciones de las categorías de las variables
+fviz_mca_var(pez.mca, col.var = "contrib",repel = TRUE, 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             ggtheme = theme_minimal())
+
+# Contribuciones por Cos2 
+fviz_cos2(pez.mca, choice = "ind", axes = 1:2, top = 20)
+
+# Contribuciones a las dimensiones
+fviz_contrib(pez.mca, choice = "ind", axes = 1:2, top = 20)
+
+
+# MCA con 10 individuos que mas contribuyen
+fviz_mca_ind(pez.mca, col.ind = "cos2", repel = TRUE,
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             ggtheme = theme_minimal(),
+             select.ind = list(contrib = 10))
+
+# ------
+# MCA con 10 variables que mas contribuyen con cos2 (cos2 = 10)
+fviz_mca_var(pez.mca, col.var = "cos2", repel = TRUE,
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             ggtheme = theme_minimal(),
+             select.var = list(cos2 = 10))
+
+
+# Figura del Biplot con las 10 variables categóricas y los 20 registros seleccionados
+fviz_mca_biplot(pez.mca, repel = TRUE,            
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                ggtheme = theme_minimal(),
+                select.var = list(contrib = 10),
+                select.ind = list(contrib = 10))
+
+
+
+
+
+#---------------
+# Incluir las variables cualitativas y cuantitativas suplementarias en el MCA
+# Variables cualitativas suplementarias (quali.sup): Nombre.vernacular
+# Variables cuantitativas suplementarias (quanti.sup): Venta.kg y Precio.venta
+
+# Estructura con todas las variables
+str(datos.activos)
+
+# Incluir la columna de registros de peces (Variable X)
+attach(datos.activos.1)
+datos.activos = data.frame(X,datos.activos)
+str(datos.activos)
+
+# MCA con variables cuantitativas y cualitativas suplementarias
+pez.mca1 <- MCA(datos.activos[,4:20], 
+               ind.sup = ,             # ind.sup: Individuos seleccionados
+               quali.sup = 1,          # 1: Variable cualitativa
+               quanti.sup = 2:3,       # 2:3: Variables cuantitativas
+               graph=FALSE)    
+
+# Figura de las variables suplementarias (azul) y las activas (rojo)
+x11()
+fviz_mca_var(pez.mca1, choice = "mca.cor",
+             repel = TRUE)
+
+# Figura de las variables suplementarias (verde), las activas (rojo) y los individuos (azul)
+fviz_mca_biplot(pez.mca1, repel = TRUE,
+                ggtheme = theme_minimal())
+
+fviz_mca_var(pez.mca1, repel = TRUE,
+             ggtheme= theme_minimal(),top=15)
+
+# Biplot con individuos y especies q más contibuyen
+fviz_mca_biplot(pez.mca, repel = TRUE,
+                ggtheme = theme_minimal(),
+                select.var = list(contrib = 20),
+                select.ind = list(contrib = 20))
+
+
+
+# Elipses por cada tipo de bagre
+fviz_ellipses(pez.mca1, "Nombre.vernacular",
+              geom = "text", repel = TRUE)
+
+# Elipses sin rotulos de los registros
+fviz_ellipses(pez.mca1, "Nombre.vernacular",
+              geom = "point", repel = TRUE)
+
+
+
+#---------------------------
+# Categorizar las variables contínuas (venta.kg y precio.venta) por sus cuartiles
+str(datos.activos)   # Importación puede ser una variable cualitativa
+
+# RIC: Rango intercuartílico
+# Venta.kg=  RIC: 25:120 por c/kg, MAX= 20000 por c/kg
+summary(datos.activos[,5:6])
+
+#----------
+# 1) Variable: Venta.kg
+# ylim= 500 pero el límite real es 20000 
+boxplot(datos.activos$Venta.kg,horizontal=T,
+        xlab="Venta.kg",ylab="",outbg = "green",
+        col="lightgray", cex.lab=1.3,ylim = c(0, 500))
+abline(v=120,lty=2,col=2)
+
+# Segmentos de la variable "Venta.kg" por cuarttiles
+# 1:25 = v.baja, 25:50 = v.media1, 50:120 = v.media2, 120:20000 = v.alta
+venta.kg= cut(datos.activos$Venta.kg, breaks=c(1, 25, 50, 120, 20001),include.lowest=T,
+              labels = c("v.baja", "v.media1","v.media2", "v.alta"))
+venta.kg
+summary(venta.kg)
+
+
+#----------
+# 2) Variable: Precio.venta
+summary(datos.activos[,5:6]) # Precio.venta=  RIC: 16000:21250 por c/kg
+
+boxplot(datos.activos$Precio.venta,horizontal=T,
+        xlab="Precio.venta",ylab="",outbg = "green",
+        col="lightgray", cex.lab=1.3)
+abline(v=16000,lty=2,col=2)
+abline(v=21250,lty=2,col=2)
+
+# Segmentos de la variable "Precio.venta" por cuarttiles
+# 1:25 = v.baja, 25:50 = v.media1, 50:120 = v.media2, 120:20000 = v.alta
+precio.venta= cut(datos.activos$Precio.venta, 
+              breaks=c(1, 10000, 16000, 21250, 28000),include.lowest=T,
+              labels = c("v.baja", "v.media1","v.media2", "v.alta"))
+precio.venta
+summary(precio.venta)
+
+
+#-----------------
+# "datos.activos2" incluye a las dos variables categóricas
+datos.activos2=data.frame(precio.venta,venta.kg,datos.activos)
+str(datos.activos2)
+
+
+
+# MCA de bagres incluyendo las categorías de "precio.venta","venta.kg"
+pez.mca2 <- MCA(datos.activos2[,c(1:2,9:22)], quali.sup = 1:2, graph=FALSE)
+pez.mca2$eig[1:5,]
+
+
+# Biplot general con bagres
+fviz_mca_biplot(pez.mca2, label ="var",repel = TRUE)+
+                theme_minimal()
+
+
+# Biplot con individuos de mayor contribución
+fviz_mca_biplot(pez.mca2, repel = TRUE,
+                select.ind = list(contrib = 20))+
+                theme_minimal()
+
+# Sin rotulos de los individuos
+fviz_ellipses(pez.mca2, c("precio.venta","venta.kg"),
+              geom = "point", repel = TRUE)
+
+fviz_mca_ind(pez.mca2, label = "none", 
+             habillage = "precio.venta",        # color por grupos 
+             palette = c("#999999", "#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = TRUE, ellipse.type = "confidence",
+             ggtheme = theme_minimal()) 
+
+
+# Biplot con contribuciones de las variables
+fviz_mca_biplot(pez.mca1, label ="var", col.var="cos2",
+                repel = TRUE, col.quali.sup ="red")
+
+# Biplot general sin bagres (*demora unos segundos)
+fviz_mca_biplot(pez.mca2, repel = TRUE)+
+                theme_minimal()
+
+
+
+
+
+#-----------------------
+# Incluir ELIPSES al MCA - venta por kilo
+
+# grupos por venta.kg
+grup1 <- as.factor(datos.activos2[, "venta.kg"])
+
+# gráfico
+fviz_mca_biplot(pez.mca2, repel = TRUE, col.var = "#E7B800",
+                habillage = grup1, addEllipses = TRUE, ellipse.level = 0.95)
+
+
+# Incluir ELIPSES al MCA - precio de venta
+grup2 <- as.factor(datos.activos2[, "precio.venta"])
+
+fviz_mca_biplot(pez.mca2, repel = TRUE, col.var = "#E7B800",
+                habillage = grup2, addEllipses = TRUE, ellipse.level = 0.95)
+```
+

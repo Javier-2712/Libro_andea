@@ -1,0 +1,559 @@
+---
+title: "Capítulo3"
+author: "Javier Rodríguez Barrios"
+date: "23/6/2022"
+output:
+  html_document: default
+---
+
+# EJEMPLO 1
+
+```{r, message= FALSE, warning= FALSE}
+# Ejercicio 1
+# A (2,1,1,3)
+# B (1,4,2,5,0,3)
+# Calcular: (1) B'.A' (2) (A.B)' (3) Demostrar que B'.A' = (A.B)'
+
+# R./
+A = matrix(c(2,1,1,3),2,2,byrow=T)		# Estructura de comandos para las matrices 
+A						# 2,2: dos filas y dos columnas.
+
+B = matrix(c(1,4,2,5,0,3),2,3,byrow=T)	# byrow: ordenar valores por filas de la matriz.
+B						# 2,3: dos filas y tres columnas
+
+tA= t(A)		# t(A): Transpuesta de la matriz A
+tA
+tB= t(B)		# t(B): Transpuesta de la matriz B
+tB
+tB%*%tA == t(A%*%B)	  # %*%: para multiplicar matrices. 
+                      #==: demostrar una igualdad.
+
+#-------------
+# Ejercicio 2
+# A (2,3,3,2)
+# B (1,4,2,5,0,3)
+# Calcular: Determinante de A y de B
+
+#R./
+A = matrix(c(2,3,3,2),2,2,byrow=T) 		  # Matriz A
+A
+B = matrix(c(1,4,2,5,0,3),3,3,byrow=T) 	# Matriz B
+B
+det(A)		# det(A): Determinante de la matriz A
+det(B) 		# det(b): Determinante de la matriz B
+
+
+#------------
+# Ejercicio 3
+# A (5,2,2,2)
+# Calcular inversa de A
+
+# R./
+A = matrix(c(5,2,2,2),2,2,byrow=T) 		  # Matriz A
+A
+solve(A)		# solve(A): Determinante de la matriz A
+
+
+
+
+#------------
+# Ejercicio 4
+# A (5,2,2,2)
+# Calcular valores y vectores propios de A
+
+# R./
+A = matrix(c(5,2,2,2),2,2,byrow=T) # Matriz A
+A
+eigen(A)    # Valores y vectores propios
+
+# Ejercicios:
+# 1. Extraer los valores y vectores propios por separado.
+# 2. Extraer el primer vector fila y el primer vector columna, por separado del resto de insumos.
+
+
+# R./ ***
+eigen(A)$vectors
+eigen(A)$vectors[,1] 
+eigen(A)$vectors[1,] 
+
+
+#------------
+# Ejercicio 5
+# Fila (observación) 1: 5,2
+# Fila (observación) 2: 2,2
+# Calcular la matriz de distancia euclidea entre las filas
+
+# R./
+A = matrix(c(5,2,2,2),2,2,byrow=T)  # Matriz A
+A
+dist(A)   # dist(A): Matriz de distancia euclídea
+
+
+
+#------------
+# Ejercicio 6
+# Fila (observación) 1: 5,2
+# Fila (observación) 2: 2,2
+# Fila (observación) 3: 2,5
+# Calcular la matriz de distancia euclídea entre las filas
+
+# R./
+A = matrix(c(5,2,2,2,2,5),3,2,byrow=T)   # Matriz A
+A
+dist(A)           # dist(A): Matriz de distancia euclídea
+round(dist(A),1)  # dound(): Disminuye decimales del resultado
+
+#------------
+# Ejercicio 7
+# Variable 1: 2,1,2
+# Variable 2: 4,3,5
+# Calcular las matrices de Covarianza y de Correlación
+
+# R./
+A = matrix(c(2,1,2,4,3,5),3,2,byrow=F) 
+A
+cov(A)
+var(A)
+cor(A)
+round(cov(A),1)
+round(cor(A),1)
+
+
+# Calcular la matriz de distancia y analizar el resultado.
+dist(A)
+round(dist(A),1)
+```
+
+
+# EJEMPLO 2
+
+```{r, message= FALSE, warning= FALSE}
+#------------
+# Librerías o paquetes requeridos
+library(MASS)
+library(ellipse)
+library(lattice)
+
+
+#------------
+# 1) Crear la base de datos "datos"
+datos2= read.csv2("datos1.csv",row.names = 1)  # Base de datos original
+head(datos2)    # Falta un dato al estudiante 13
+
+datos2=na.omit(datos2)      # na.omit, para eliminar al estudiante 13
+
+colnames(datos2) <- c("Sexo","LTot","Cint","LEsp","LBra")   	# Rótulos de la base de datos
+head(datos2)          # Base de datos abreviada
+
+datos2$Sexo = as.factor(datos2$Sexo)  # convertir columna Sexo a factor
+summary(datos2$Sexo)    # 14 mujeres y 10 hombres
+
+
+#------------
+# 2) Matrices por sexo 
+str(datos2)
+hombres = datos2[datos2$Sexo == "M",]   # Matriz de hombres
+hombres [1:4, 1:5]      # cuatro filas y 5 columnas de esta base de datos
+
+mujeres = datos2[datos2$Sexo == "F",]   # Matriz de mujeres
+mujeres [1:4, 1:5]      # cuatro filas y 5 columnas de esta base de datos
+
+
+#------------
+# 3) Matrices centradas por sexos
+var.h = hombres[,c(2:5)]        # Variables morfométricas de hombres
+promedio.h = colMeans(var.h)    # Promedios de las variables
+head(promedio.h)
+
+var.m = mujeres[,c(2:5)]        # Variables morfométricas de mujeres
+promedio.m = colMeans(var.m)    # Promedios de las variables
+head(promedio.m)
+
+# *Opcional - matriz centrada
+m.centrada.h <- t(t(var.h) - promedio.h) # Restar cada dato a los promedios
+head(m.centrada.h) 
+
+m.centrada.m <- t(t(var.m) - promedio.m) # Restar cada dato a los promedios
+head(m.centrada.m)
+
+
+
+#------------
+# 4) Operaciones vectoriales
+dif = promedio.h - promedio.m      # Diferencia de medias (m1-m2)
+dif
+t.dif = t(dif)    # Transpuesta de la diferencia (m1-m2)'
+t.dif
+
+sum = promedio.h + promedio.m      # Suma de medias (m1+m2)
+sum
+
+
+#------------
+# 5) Matriz de covarianza generalizada o compuesta (S-1)
+
+cov.h = var(hombres[,c(2:5)])     # Matriz de varianza y covarianzas de hombres
+round(cov.h,1)
+
+cov.m = var(mujeres[,c(2:5)])     # Matriz de varianza y covarianzas de mujeres
+round(cov.m,1)
+
+summary(datos2$Sexo)    # 14 mujeres y 10 hombres
+
+cov.g = (10*cov.h + 14*cov.m)/24  # Covarianza genealizada o compuesta
+round(cov.g,2)
+
+cov.g.i = solve(cov.g) # Cov. generalizada invertida
+round(cov.g.i,3)
+
+
+
+
+#------------
+# 3) Función discriminante de Wlad y Anderson (Wx)
+# W(x) = [(m1-m2)'.S-1.x]-[1/2.(m1-m2)'.S-1 .(m1+m2)]
+
+head(datos2)      # Base de datos
+datos3 = as.matrix (datos2[2:5])
+head(datos3) 
+
+# 10 primeros alumnos como vectores
+
+x1 = as.vector(datos3[1, 1:4])   # Datos del alumno 1
+x2 = as.vector(datos3[2, 1:4])   # datos3[2, 1:4]: fila 2, columnas 1 a 4. alumno 1
+x3 = as.vector(datos3[3, 1:4])
+x4 = as.vector(datos3[4, 1:4])
+x5 = as.vector(datos3[5, 1:4])
+x6 = as.vector(datos3[6, 1:4])
+x7 = as.vector(datos3[7, 1:4])
+x8 = as.vector(datos3[8, 1:4])
+x9 = as.vector(datos3[9, 1:4])
+x10 = as.vector(datos3[10, 1:4])  # Datos del alumno 10
+
+
+# Discriminantes de los 10 primeros alumnos
+# Si da negativo discrimina en mujer y positivo en hombre
+# W(x) = [(m1-m2)'.S-1.x]-[1/2.(m1-m2)'.S-1 .(m1+m2)]
+
+W1 = ((t.dif%*%cov.g.i%*%x1)-(1/2*(t.dif%*%cov.g.i%*%sum)))   # Datos del alumno 1, 
+W2 = ((t.dif%*%cov.g.i%*%x2)-(1/2*(t.dif%*%cov.g.i%*%sum)))   
+W3 = ((t.dif%*%cov.g.i%*%x3)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W4 = ((t.dif%*%cov.g.i%*%x4)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W5 = ((t.dif%*%cov.g.i%*%x5)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W6 = ((t.dif%*%cov.g.i%*%x6)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W7 = ((t.dif%*%cov.g.i%*%x7)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W8 = ((t.dif%*%cov.g.i%*%x8)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W9 = ((t.dif%*%cov.g.i%*%x9)-(1/2*(t.dif%*%cov.g.i%*%sum)))
+W10 = ((t.dif%*%cov.g.i%*%x10)-(1/2*(t.dif%*%cov.g.i%*%sum))) # Discriminante alumno 10
+
+ad = data.frame (W1,W2,W3,W4,W5,W6,W7,W8,W9,W10)  # Discriminantes compilados
+ad
+t(ad)   # Transpuesto
+
+clase1 <- sample("F", size = 3, replace = TRUE)   # vector de las 3 mujeres
+clase2 <- sample("M", size = 7, replace = TRUE)   # vector de los 7 hombres
+clase <- c(clase1, clase2)      # Fusión de vectores
+clase
+
+ad = data.frame(LD1 = t(ad),clase)
+ad
+
+
+#------------
+# 4) Comparación del discriminante manual con el automatizado
+# *Nota: Los detalles de este análisis de presentarán en el capítulo de discriminantes lineales.
+library(MASS)
+ad1<-lda(Sexo~LTot+Cint+LEsp+LBra,data=datos2)    # Discriminante lineal de Fisher
+ad1
+
+names(ad1)  # Insumos del discriminante
+
+group<-predict(ad1,method="plug-in")$class  # Desempeño del discriminante
+(tabla<-table(datos2$Sexo,group))
+
+result = predict(ad1,method="plug-in")  # Otros insumos del discriminante
+
+result$class     # Discriminante realizado
+head(result$x)   # Función discriminante en cada alumno
+
+result = data.frame(result$x, clase=result$class)   # Data frame
+ad2 = result[1:10,]   # Data frame de los 10 primeros alumnos
+ad2
+
+ad == ad2  # Igualdad ente el discriminante manual (ad) y el automatizado (ad2)
+
+
+
+#------------
+# 5) Figuras
+
+# Librerías
+library(ellipse)
+library(lattice)
+
+str(datos2)
+x11()
+boxplot(LTot~Sexo, data = datos2, ylab ="Altura (cm)",    # Cajas grises
+        cex.lab=1.3)
+
+boxplot(LTot~Sexo, data = datos2, ylab ="Altura (cm)",	  # Cajas amarillas con muescas 
+        cex.lab=1.3,notch=T,col="bisque")
+
+boxplot(LTot~Sexo, data = datos2, ylab ="Altura (cm)",	  # Cajas azules con muescas
+        cex.lab=1.3,notch=T,col="lightblue")
+
+
+x11()
+boxplot(LD1~clase, data = ad, ylab ="Eje 1",
+        cex.lab=1.3)
+
+x11()
+boxplot(LD1~clase, data = ad2, ylab ="Eje 1",
+        cex.lab=1.3)
+```
+
+
+
+# EJEMPLO 3
+
+```{r, message= FALSE, warning= FALSE}
+#---------------
+# Cargar la base de datos de Excel *.csv
+datos= read.csv2("datos1.csv")  
+str(datos)      # Estructura de la base de datos
+
+# Librerías
+library(ggplot2)
+library(vegan)
+
+#---------------
+# 1) Ajuste de la base de datos para el trabajo matricial
+datos = datos[-13,] # Eliminar el alumno 13 por faltarle un dato
+head(datos)     # Encabezado de la base datos
+str(datos)      # Estructura de la base de datos
+
+# Abreviaturas de los estudiantes (filas de la matriz)
+str(datos)      # Estructura de la base
+datos1 <- datos[,c(3:6)]  # Variables morfométricas
+head(datos1)
+1:nrow(datos1)  # Generar datos de 1 a n: 25 estudiantes
+LETTERS[1:nrow(datos1)]  # Letras para los nombres de los estudiantes
+nombres <- LETTERS[1:nrow(datos1)]  # Asignar como "nombres" al comando anterior
+
+# Abreviaturas de las variables (Columnas de la matriz).
+colnames(datos1) <- c("LTot","Cint","LEsp","LBra")
+head(datos1)
+
+# Base de datos con nombres abreviados (filas y columnas)
+dimnames(datos1)=(list(nombres,colnames(datos1)))
+head(datos1)
+str(datos1)     # Estructura de la base abreviada
+
+datos1$Estud <- rownames(datos1) # Insertar columna de observaciones
+head(datos1)    # Encabezado de la base de datos
+
+# Guardar una base datos en el directorio de trabajo
+write.csv2(datos1, "datos.csv")
+
+datos = datos1  # Cambiar "datos1" a "datos"
+datos[,5]       # Siglas de los estudiantes
+rownames(datos)= datos[,5]    # Siglas para las operaciones
+
+#---------------
+# 2) Análisis de mediciones de los estudiantes
+str(datos)
+
+# 2.1) Sumas y norma de los vectores (variables)
+datos = datos[,1:4]             # asignar "datos" solo a las variables morfométricas
+sumas <- rowSums(datos) 	# Suma de las variables por cada estudiante (rowSums)
+sumas
+sumas1 <- colSums(datos) 	# Suma los estudiantes por cada variable (colSums)
+sumas1
+normas <- sqrt(rowSums(datos ^ 2)) 	# Norma de cada estudiante (vector fila)
+round(normas,2) 	# Resumen de resultados a dos decimales 
+
+# Base (datos.t) que integra a las sumas y las normas
+datos.t = data.frame(datos,sumas,norma= round(normas,2))
+head(datos.t)
+
+# 2.2) Figura de proyección vectorial de los estudiantes  
+x11()   # Figura de cada estudiante como un vector 
+plot(datos.t[,c(1,3)]) # figura de las variables 1 y 3
+
+
+# Figuras de distancias de cada estudiante como vectores
+plot(sumas, normas)
+text(sumas, normas, labels = names(sumas), 
+     cex = 0.8, pos = 2, col = "red")                   # Rótulos de los puntos
+abline (lm(normas~sumas),lty=2, lwd=2, col="lightblue") # Ajuste lineal (línea sólida)
+lines(lowess(sumas, normas),lty=1,lwd=1,col=2)  # Ajuste suavizado  (línea punteada)
+
+
+# Figura de relación con ggplot2
+library(ggplot2)
+ggplot(data=datos.t,                            
+       aes(x=datos.t$sumas, y=datos.t$norma)) +
+        geom_point(na.rm=T) +                    # Nube de puntos      
+        geom_smooth(method='loess',na.rm=T) +    # curva tipo loess
+        labs(x='Sumas', y='Normas') +
+        theme_bw()                               # Fondo blanco
+
+ggplot(data=datos.t,                            
+       aes(x=datos.t$sumas, y=datos.t$norma)) +
+        geom_point() +
+        labs(x='Sumas', y='Normas') +
+        geom_smooth(method = lm, se = FALSE)
+
+
+#---------------
+# 3) Cálculo de la matriz centrada de las variables morfométricas
+
+var = datos.t[,c(1:4)]        # Variables morfométricas
+promedio = colMeans(var)      # Promedios de las variables
+promedio
+
+m.centrada <- t(t(var) - promedio) # Restar cada dato a los promedios
+head(m.centrada)  
+
+# Figura de las observaciones centradas
+plot(m.centrada[,c(1,3)])                       # Figura general
+plot(m.centrada[,c(1,3)],xlim = c(-20, 20),     # Figura editada
+     ylim = c(-15, 20), asp = 1, pch = 19)
+text(m.centrada[,c(1,3)],                       # Rotulos de los puntos
+     labels = row.names(m.centrada[,c(1,3)]), 
+     pos = 3, cex=0.7)
+grid()          # Grilla en la figura
+abline(h = 0, col = "red", lty = 4)             # Plano Cartesiano
+abline(v = 0, col = "red", lty = 4)  
+
+
+#---------------
+# 4) Operaciones matriciales - Ordenación multivariada
+
+# 1. Cálculo de valores y vectores propios
+cov = var(datos.t[,c(1:4)])     # Matriz de varianza y covarianzas
+cov = var(var)                  # Opción 2
+round(cov,1)
+
+promedio = colMeans(var)        # Promedios de las variables
+promedio
+
+m.centrada <- t(t(var) - promedio) # Variables centradas
+head(m.centrada)
+
+vc.centrada = var(m.centrada)   # Matriz de varianza y covarianzas centrada
+vc.centrada
+
+v.propios= eigen(vc.centrada)   # Vectores y valores propios de m.centrada
+v.propios
+v.propios$vectors               # Extraer vectores propios
+
+
+# 2. Proyección matricial (matriz rotada), usando a los vectores propios
+m.centrada=as.matrix(m.centrada)        # Variables centradas como matriz
+head(m.centrada)
+
+# Matriz rotada
+head(m.Rotada <- m.centrada %*% v.propios$vectors)
+
+
+
+
+#---------------
+# 5) Figuras de la matriz proyectada "m.Rotada"
+
+# Figura sin editar
+plot(m.Rotada) 	# m.Rotada es la matriz rotada
+
+# Figura editada 
+plot(m.Rotada, asp = 2, pch = 19,        	# asp=2 son los círculos, pch= 19 es el relleno de los círculos
+     xlab="Eje 1",ylab="Eje 2") 		# Rótulos de los ejes
+text(m.Rotada, 				# Rótulos de los datos (estudiantes)
+     labels = row.names(datos.t[,c(1:4)]), 
+     pos = 3, cex=0.7)				# cex() relaciona el tamaño del texto
+abline(h=0, col = "red")			# abline (h=0) línea horizontal del plano cartesiano
+abline(v=0, col = "red")			# abline (v=0) línea vertical del plano cartesiano
+grid()						# Grilla en la figura
+
+
+
+# Comparar con el Análisis de Componentes Principales - pca
+
+library(vegan)          # Librería requerida
+
+# Datos del procedimiento 2.1) Sumas y norma de los vectores
+head(datos)             # Variables y observaciones (estudiantes)
+pca <- rda(datos)       # Realización del pca
+x11()
+biplot(pca)             # Figura del pca
+abline(h=0, col = "blue")			# abline (h=0) línea horizontal del plano cartesiano
+abline(v=0, col = "blue")			# abline (v=0) línea vertical del plano cartesiano
+grid()			
+
+
+
+
+#-----------------------
+# 6) * Avanzados
+# Figura con nombres de los estudiantes
+datos2= read.csv2("datos1.csv")         # Base de datos original
+datos2=na.omit(datos2)          # na.omit, para eliminar al estudiante 13
+str(datos2)
+head(datos2)    # Encabezado de la la base "datos2"
+datos2$Nombre   # Valores de la columna "nombres"
+
+head(m.Rotada)        # Matriz rotada original
+m.Rotada1 = as.data.frame (m.Rotada)    # Matriz rotada como data frame
+m.Rotada1$nombres <-  datos2$Nombre     # Insertar nombres de los estudiantes
+m.Rotada1 = as.matrix(m.Rotada1)        # M. rotada como matriz
+rownames(m.Rotada1)= datos2[,1]      # Siglas para las operaciones
+
+x11()
+plot(m.Rotada1[,1:4], asp = 2, pch = 19,        # Edición de la figura
+     xlab="Eje 1", ylab="Eje 2")
+text(m.Rotada1, labels = row.names(m.Rotada1[,1:4]), 
+     pos = 3, cex=0.7, col = "blue")
+abline(h=0, col = "red")
+abline(v=0, col = "red")
+grid()
+
+
+
+#---------------
+# 7) Análisis de Componentes Principales - pca
+library(vegan)
+datos2= read.csv2("datos1.csv")  # Base de datos original
+datos2=na.omit(datos2)           # na.omit, para eliminar al estudiante 13
+colnames(datos2) <- c("Nombre","Sexo","LTot","Cint","LEsp","LBra")
+head(datos2)            # Base de datos abreviada
+
+pca <- rda(datos2[3:6])   # eEalización del pca
+rownames(datos2)= datos2[,1]      # Siglas para las operaciones
+
+# Figura del pca
+x11()
+biplot(pca, type = c("text", "n"),scaling =2,     # Figura solo con variables morfométricas
+       main="PCA - Scaling 2",cex=2)
+text(pca, display="sites", cex=0.7,               # Graficas a los estudiantes
+     col="blue", lwd=1.5, pos=3,
+     labels = as.character(datos2$Nombre))        # Nombres de los estudiantes
+
+
+
+#---------------
+# 8) Figura en 3D de la matriz proyectada "m.Rotada"
+library(plot3D)
+m.Rotada1 = as.data.frame (m.Rotada)    # Matriz rotada como data frame
+m.Rotada1$nombres <-  datos2$Nombre     # Insertar nombres de los estudiantes
+colnames(m.Rotada1) <- c("Eje1","Eje2","Eje3","Eje4","Nombre")
+
+plot(m.Rotada1[, c(1, 2)], pch = 19, asp = 1)   # Figura con ejes 1 y 2
+plot(m.Rotada1[, c(1, 3)], pch = 19, asp = 1)   # Figura con ejes 1 y 3
+plot(m.Rotada1[, c(2, 3)], pch = 19, asp = 1)   # Figura con ejes 2 y 3
+
+x11()
+str(m.Rotada1)
+scatter3D (m.Rotada1[, 1], m.Rotada1[, 2],      # Figura con ejes 1, 2 y 3
+           m.Rotada1[, 3], pch = 19, asp = 2)
+```
+

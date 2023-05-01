@@ -1,0 +1,300 @@
+---
+title: "Capítulo6.ac"
+author: "Javier Rodríguez Barrios"
+date: "1/7/2022"
+output:
+  html_document: default
+---
+
+# # ANÁLISIS DE CORRSPONDENCIA SIMPLE – CA
+
+```{r, message= FALSE, warning= FALSE}
+#----------------
+# Llamar en R a la base de datos “tayrona.csv”
+datos = read.csv2("tayrona.csv",row.names=1)
+
+# Librerías
+library(ade4)
+library(vegan)
+library(ca)
+library(anacor)
+library("FactoMineR")
+library("factoextra")
+library(ggplot2)
+library(reshape2)
+library(ggrepel)
+
+
+#-------------
+# Ajuste de las bases de datos biológica (tax.hel) y fisiqcoquimica (amb)
+datos$Epoca = as.factor (datos$Epoca)   	# Convertir Época a factor
+
+
+# Variables ambientales
+amb=log10(datos[,c(2:12)]+1)
+head(amb)
+
+# Variables biológicas - Taxones 
+tax=datos[,c(13:63)]
+head(tax)
+
+
+#----------------
+# 1. Cálculo del CA, con el paquete "vegan"
+(datos.ca <- cca(tax))
+summary(datos.ca)		              # por default lo hace con scaling 2
+
+
+# Figura de autovalores y criterio vara quebrada
+x11()
+screeplot(datos.ca, bstick = TRUE, npcs = length(datos.ca$CA$eig),
+          main = deparse(substitute(Ejes.CA)), ylab = "Inercia")
+
+
+# Ordenación de sitios y taxones 
+x11()
+plot(datos.ca, scaling = 2,cex=2, type = "n",
+     main = "Biplot en Saling 2")
+ordi=orditorp(datos.ca, display = "species", 
+              shrink = FALSE, col = "red", type="n") 
+text(datos.ca, display="sites", 
+     cex=0.8, col="blue", lwd=1.5, pos=3)
+points(datos.ca, display = "sites",  
+       cex = 0.8, col = "lightblue", lwd=1.5)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+
+# Ordenación de sitios, taxones y fisicoquímicos
+x11()
+plot(datos.ca, scaling = 2,cex=2, type = "n",
+     main = "Biplot en Saling 2")
+ordi=orditorp(datos.ca, display = "species", 
+              shrink = FALSE, col = "red", type="n") 
+text(datos.ca, display="sites", 
+     cex=0.8, col="blue", lwd=1.5, pos=3)
+points(datos.ca, display = "sites",  
+       cex = 0.8, col = "lightblue", lwd=1.5)
+amb1 = envfit(datos.ca,amb)    
+plot(amb1,col=4,cex=0.7)
+
+
+# Ordenación de sitios y taxones por épocas
+x11()
+plot(datos.ca, scaling = 2,cex=2, type = "n",
+     main = "Biplot en Saling 2")
+ordi=orditorp(datos.ca, display = "species", 
+     shrink = FALSE, col = "red", type="n") 
+text(datos.ca, display="sites", 
+     cex=0.7, col="blue", lwd=1.5, pos=3)
+points(datos.ca, display = "sites",  
+       cex = 0.7, col = "lightblue", lwd=1.5)
+ordiellipse(datos.ca, datos$Epoca, lwd=2,
+            scaling = "symmetric", conf=0.95, kind = "se")
+ordibar(datos.ca, datos$Epoca, kind="se", conf=0.95, 
+        lwd=1,cex.lab=0.8,label=TRUE)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+
+
+# Otra ordenación de sitios y taxones por épocas
+x11()
+plot(datos.ca, scaling = 2,cex=2, type = "n",
+     main = "Biplot en Saling 2")
+ordi=orditorp(datos.ca, display = "species", 
+              shrink = FALSE, col = "red", type="n") 
+text(datos.ca, display="sites", 
+     cex=0.7, col="blue", lwd=1.5, pos=3)
+points(datos.ca, display = "sites",  
+       cex = 0.7, col = "lightblue", lwd=1.5)
+ordihull(datos.ca, datos$Epoca, scaling = "symmetric", 
+         col = 1:2,draw="polygon",kind="se", conf=0.95,)
+ordispider(datos.ca, datos$Epoca, label=TRUE, 
+           kind="se", conf=0.95)
+
+
+
+
+#----------------
+# 2. Comando CA, del paquete CA 
+library(ca)
+
+# Insumos del ca
+ca(tax)
+summary(ca(tax))
+
+
+# Ordennación de sitios y taxones
+x11()
+plot(ca(tax))
+
+
+
+#----------------
+# 3. Comando CA, del paquete anacor
+library(anacor)
+datos.ca <- anacor(tax, scaling = c("standard"))
+
+# Insumos del ca
+datos.ca
+summary(datos.ca)
+
+# metodos scaling son: "standard", "Benzecri", "Goodman"
+x11()
+plot(datos.ca, plot.type = "jointplot",asp = 1)
+plot(datos.ca, plot.type = "graphplot", wlines = 5, asp = 1)
+
+
+
+#----------------
+# 4. CA de los paquetes "factominer y factoextra"
+
+# Insumos del ca
+datos.ca <- CA (tax, graph = FALSE)
+summary(datos.ca)
+print(datos.ca)
+
+# Figura de autovalores (para la escogencia de ejes)
+fviz_screeplot(datos.ca, addlabels = TRUE, ylim = c(0, 50),
+               ylab = "% Varianza explicada", xlab = "Dimensiones",
+               col="steelblue")
+
+
+# Ordenación de los taxones
+fviz_ca_col (datos.ca, repel = TRUE,          # Repel evita superposición de texto
+             ggtheme = theme_minimal())       # theme_minimal: Comprime relaciones de variables y de observaciones
+
+# Ordenación de las observaciones (sitios y periodos climáticos)
+fviz_ca_row (datos.ca, repel = TRUE,         # Repel evita superposición de texto
+             geom = c("point","text"))       # theme_minimal: Comprime relaciones de variables y de observaciones
+
+
+# Figura del Biplot de ordenación para sitios y taxones
+x11()
+fviz_ca_biplot (datos.ca, repel = TRUE,        # Repel evita superposición de texto     
+                ggtheme = theme_minimal())
+
+# Seis taxones con mayor contribución a la ordenación
+x11()
+fviz_ca_biplot(datos.ca,
+               select.row = list(contrib = 6),
+               select.col = list(contrib = 4))
+
+# taxones con mayor contribución al CA
+fviz_ca_row(datos.ca, col.row = "cos2",
+            gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+            repel = TRUE)
+
+# Categorías de frecuencia de compra con mayor contribución al CA
+fviz_ca_col(datos.ca, col.col = "cos2",
+            gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+            repel = TRUE)
+
+
+
+
+#----------------
+# 5) CA con paquete ggplot2
+
+# Insumos del RDA parsimonioso o que resume a las tres variables
+(datos.ca <- cca(tax))
+names(datos.ca)	
+
+# 1) Coordenadas de los sitios el factor "coord.sit"
+coord.sit <- as.data.frame(datos.ca$CA$u[,1:2])     # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)      # Crear una columna con nombres de los sitios
+coord.sit$grp <-  datos$Epoca               # Adicionar columna de grupos por Epoca
+head(coord.sit)                             # vista resumida de las coordenadas de sitios
+
+# 2) Coordenadas de los taxones "coord.tax"
+coord.tax <- as.data.frame(datos.ca$CA$v[,1:2])   # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)         # Insertar columna con nombres de las especies
+head(coord.tax) 
+
+# 3) Coordenadas de las ambientales "coord.amb"
+amb1 = envfit(datos.ca,amb) 
+coord.amb = as.data.frame(scores(amb1, "vectors"))
+coord.amb$amb <- rownames(coord.amb)         # Insertar columna con nombres de las ambientales
+head(coord.amb) 
+
+
+# 3.1) Figura con vectores de especies
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CA1,CA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CA1,CA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CA1, yend = CA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CA1,CA2,label=especies),colour = "red")+
+  # Factor
+  geom_polygon(data=coord.sit,aes(x=CA1,y=CA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+# 3.2) Figura con vectores de especies (sin flechas)
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CA1,CA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CA1,CA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Taxones  *valores de cero para caracteres de las flechas (arrow)
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CA1, yend = CA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CA1,CA2,label=especies),colour = "red")+
+  geom_polygon(data=coord.sit,aes(x=CA1,y=CA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+
+
+
+
+# 3.3 Figura con vectores de especies y ambientales
+library(ggrepel)
+
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(CA1,CA2,label=row.names(coord.sit)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(CA1,CA2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = CA1, yend = CA2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(CA1,CA2,label=especies),colour = "red")+
+  # Ambiental  
+  geom_segment(data = coord.amb,aes(x = 0, y = 0, xend = CA1, yend = CA2), 
+               arrow = arrow(angle=22.5,length = unit(0.25,"cm"),
+                             type = "closed"),linetype=1, size=0.6,colour = "blue")+
+  geom_text_repel(data = coord.amb,aes(CA1,CA2,label=row.names(coord.amb)),colour = "#00abff")+
+  geom_polygon(data=coord.sit,aes(x=CA1,y=CA2,fill=grp,group=grp),alpha=0.30) +
+  
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+```
+

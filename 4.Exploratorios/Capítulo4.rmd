@@ -1,0 +1,501 @@
+---
+title: "Capítulo4"
+author: "Javier Rodríguez Barrios"
+date: "23/6/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+#--------------------
+# Librerías requeridas
+library(lattice)
+library(ellipse)
+require(SciViews)
+library(plotrix)
+require(stats)
+library(corrplot)
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(gridExtra)
+library(gtable)
+library(grid)
+library(ggforce)
+
+#------------------
+# Base de datos de insectos acuáticos
+
+datos<-read.csv2("Datos1.csv",row.names=1)
+
+# Organización de los datos
+str(datos)      # Estructura de la base de datos
+datos$cuenca=as.factor(datos$cuenca)  # Convertir cuenca a factor
+str(datos)        # Nueva estructura de los datos
+summary(datos[,3:9])  # Resumen estadístico
+
+#------------------
+# 1. Gráfica por pares
+pairs(datos[,3:9])        # [,3:9] relaciona a las columnas 2 a la 8.
+pairs(log10(datos[,3:9])) # log10 es la transformación logarítmica
+
+# 2. Figuras de pares con curvas de ajuste
+pairs ((datos[,c(2:9)]),panel=function(x,y)
+{abline(lsfit(x,y)$coef,lwd=2,col=3)
+  lines(lowess(x,y),lty=2,lwd=2,col=2)
+  points(x,y,cex=1)})
+
+# 3. Pares con "cuenca" como un factor
+pairs ((datos[,c(2,6,7,9)]),panel=function(x,y)
+      {abline(lsfit(x,y)$coef,lwd=2,col=3)
+      lines(lowess(x,y),lty=2,lwd=2,col=2)
+      points(x,y,col=datos$cuenca, cex=1.4)})
+
+# 4. Pares con coeficientes de Pearson
+pairs(datos[, 2:9], diag.panel = panel.hist, 
+      upper.panel = panel.cor, lower.panel = panel.smooth)
+
+#------------------
+# 5.Elipses en escalas de grises 
+plotcorr(cor(datos[,2:9]))
+
+# 6. Especies de insectos
+M <- cor(datos[,2:9])            # Matriz de Correlación (M)
+x11()                            # Panel gráfico adicional
+corrplot(M, method = "ellipse")  # Figura de correlaciones con elipses
+corrplot(M, method = "circle")   # Figura de correlaciones con círculos
+corrplot.mixed(M, upper="ellipse")
+
+
+#------------------
+# 7. Figura con tres variables (Función: coplot)
+with(datos,coplot(Efem~pH|temp))
+
+# Coplot con líneas de ajuste suavizado (loess)
+with(datos, {
+  coplot(Efem~pH|temp, number = 3,
+  panel = function(x, y, ...) panel.smooth(x, y, span = .8, ...))
+  coplot(Efem~pH|temp,
+         panel = panel.smooth)})
+
+
+# 8. Coplot con categórias 
+summary(datos[,3:9])
+
+clasetemp<-cut(datos$temp,seq(15,20,1.2),include.lowest=T)
+clasetemp
+clasepH<-cut(datos$pH,seq(5,8,1,include.lowest=T))
+clasepH
+
+panel.lm = function(x, y, ...) {
+  tmp<-lm(y~x,na.action=na.omit)
+  abline(tmp, lwd = 1.5, col= 2)
+  points(x,y, ...)}
+
+coplot(Efem~pH | clasetemp, pch=19, panel = panel.lm, data=datos)
+
+# 9. Splom para variables categorizadas
+splom(~datos[,4:8]|clasepH,pscales=0)   
+splom(~datos[,4:8]|clasepH+clasetemp,pscales=0)
+
+# 10. xyplot para para cada cuenca
+xyplot(Efem~pH|cuenca,data=datos)
+
+
+#------------------
+# 11. Histogramas 
+
+# General
+histogram	(~Ab,data=datos, ylab="Porcentaje del Total",
+   xlab="Abundancia de insectos")
+
+# Por cuencas
+histogram	(~Ab|cuenca,data=datos, ylab="Porcentaje del Total",
+   xlab="Abundancia de insectos")
+
+# Escala de grises
+qplot(Ab, data = datos, ylab="Frecuencia",
+      xlab="Abundancia de insectos")
+
+# Por tipos de cuencas
+qplot(Ab, data = datos, fill = cuenca, ylab="Frecuencia",
+      xlab="Abundancia de insectos")
+
+# Por tipos de cuencas
+qplot(Ab, data = datos, fill = cuenca, binwidth = 3,
+      ylab="Frecuencia",xlab="Abundancia de insectos")
+
+# Por tipos de cuencas
+ggplot(datos, aes(x=Ab, fill=cuenca)) + 
+  geom_bar() +
+  labs( y="Frecuencia", x="Abundancia de insectos", 
+        title="Histograma de Abundancias en cada cuenca")
+
+# Histograma por tipos de cuencas
+ggplot(datos) + 
+  geom_histogram(mapping = aes(x=Ab, color=cuenca), 
+  bins = 15)
+
+# Otra forma de Histograma por tipos de cuencas
+qplot(Ab, data = datos, facets = cuenca ~ ., binwidth = 2,
+      ylab="Frecuencia")
+
+# Histograma por tipos de cuencas
+ggplot(datos, aes(x=Ab, fill=cuenca)) +
+  theme_bw() +
+  geom_bar() +
+  labs( y="Frecuencia", x="Abundancia de insectos", 
+        title="Histograma de Abundancias")+ 
+  facet_wrap(~cuenca)
+
+
+#------------------
+# 12. Figuras de densidad
+
+# Figuras de densidad del paquete "lattice"
+densityplot(~Ab,data=datos, ylab="Porcentaje del Total",
+xlab="Abundancia de insectos")  
+
+#
+densityplot(~Ab|cuenca,data=datos, ylab="Porcentaje del Total",
+xlab="Abundancia de insectos")
+
+# Figura de densidad con el comando "qplot"
+qplot(Ab,data=datos, geom = "density",ylab="Frecuencia",
+      xlab="Abundancia de insectos")
+
+# Figura de densidad con el comando "ggplot"
+ggplot(data = datos, aes(x = Ab)) +
+  geom_density(fill = 'gray') +
+  labs( y="Frecuencia", x="Abundancia de insectos")
+
+# 13. Figura de densidad por tipos de cuencas
+qplot(Ab, data = datos, geom = "density", color = cuenca,
+      ylab="Frecuencia",xlab="Abundancia de insectos")
+
+# Figura de densidad por tipos de cuencas
+ggplot(data = datos, aes(x = Ab, color = cuenca)) +
+  geom_density(aes(fill = cuenca)) +
+  labs( y="Frecuencia", x="Abundancia")
+#
+ggplot(data = datos, aes(x = Ab, color = cuenca)) +
+  geom_density(aes(fill = cuenca), alpha = 0.5) +
+  labs( y="Frecuencia", x="Abundancia")
+
+# Figura de densidad on paneles por tipos de cuencas
+ggplot(data = datos, aes(x = Ab, color = cuenca)) +
+  geom_density(aes(fill = cuenca)) + 
+  facet_wrap(~ cuenca)
+
+
+#------------------
+# 14. qqplot
+panel<-par(mfrow=c(1,2), mar=c(4,3,3,2))
+
+# figura con datos crudos
+qqnorm (datos$Ab, main="Abundancia de Insectos",
+ylab="Cuantiles de la muestra",
+xlab="Cuantiles teóricos") 
+qqline(datos$Ab)
+
+
+# figura con raíz log de abundancias
+Ab.log <- log10(datos$Ab+1)
+qqnorm (Ab.log, main="Log de Abundancia de Insectos",
+ylab="Cuantiles de la muestra",
+xlab="Cuantiles teóricos") 
+qqline(Ab.log)
+par(panel)
+panel<-par(mfrow=c(1,1))
+
+
+# 15. qqplot para abundancia de dos cuencas
+cuenca1 <- datos %>% filter(cuenca == "cuen1") %>% pull(Ab)
+cuenca1
+cuenca2 <- datos %>% filter(cuenca == "cuen2") %>% pull(Ab)
+cuenca2
+
+# 16. Figuras para las dos cuencas
+panel<-par(mfrow=c(1,2))
+qqnorm(cuenca1,
+       ylab="Cuantiles de la muestra",
+       xlab="Cuantiles teóricos", 
+       main = "Cuenca1", col = "firebrick")
+qqline(cuenca1)
+qqnorm(cuenca2, 
+       ylab="Cuantiles de la muestra",
+       xlab="Cuantiles teóricos",
+       main = "Cuenca2", col = "springgreen4")
+qqline(cuenca2)
+par(mfrow = c(1, 1))
+
+
+#------------------
+# 17. Figura bivariada de dispersión 
+panel<-par(mfrow=c(1,2), mar=c(4,5,3,2)) 
+with(datos,plot(Efem~Plec,type="p",
+     ylab="Efemerópteros",xlab="Plecópteros"))
+lines(lowess(datos$Plec,datos$Efem),col=4)
+lines(abline(lm(datos$Efem~datos$Plec),lwd=2,col=2, lty=2))
+
+# 18. Figura bivariada en las cuencas
+plot(Ab~Dipt,col=as.integer(cuenca),data=datos,ylab="",
+ xlab="Dipteros") 
+legend(3,100,legend=levels(datos$cuenca),pch=19,col=1:4,cex=0.8)
+lines(abline(lm(datos$Ab~datos$Dipt),lwd=2,col=2, lty=2))
+par(mfrow = c(1, 1))
+# Figura bivariada de dispersión + leyenda
+xyplot(Ab~Dipt,group=cuenca,auto.key=T,data=datos)
+
+# 19. Figura con loess
+ggplot(data=datos,                            
+       aes(x=datos$Dipt, y=datos$Ab)) +
+  geom_point(na.rm=T) +                    # Nube de puntos      
+  geom_smooth(method='loess',na.rm=T) +    # genera el loess
+  labs(x='Dípteros', y='Abundancia') +
+  theme_bw()                               # Fondo blanco
+
+
+# 20. Dispersión con elipses
+ggplot(datos, aes(Ab, Dipt)) +
+  geom_mark_ellipse(aes(fill = cuenca, label = cuenca),
+  label.buffer = unit(40, 'mm')) +
+  geom_point()
+
+
+#------------------
+# 21. Figuras de Cajas y cinturas
+datos$cuenca<-factor(datos$cuenca,               # Ordenar los grupos (cuencas)
+ levels=c("cuen1","cuen2","cuen3","cuen4"))
+
+# Figura de cajas con cinturas
+boxplot(Ab~cuenca,data=datos,notch=TRUE,
+xlab="Cuencas",ylab="Abundancia",
+col="lightgray", cex.lab=1.3)
+
+# 22. Figura de cajas - 1 variable
+ggplot(data = datos, mapping = aes(x=cuenca, y=Ab)) +
+  geom_boxplot()
+
+# 23. Figura de cajas - por tipos de cuencas
+ggplot(data = datos) +
+  geom_boxplot(aes(x = cuenca, y = Ab, colour = cuenca)) +
+  xlab("Cuencas") + ylab("Abundancia") +
+  theme_bw() + theme(legend.position = "none") # para quitar la leyenda
+
+# Cajas con dispersión de datos
+
+# Otra opción de figura de cajas
+ggplot(data = datos, aes(x=cuenca, y=Ab)) +
+  geom_boxplot(alpha=0.7) +
+  geom_point(size= 1, colour='#1380A1') +
+  geom_jitter(aes(colour = cuenca)) +
+  labs(title="Abundancia por cada cuenca", 
+       caption="Author: JR") +
+  xlab("Cuencas") +
+  ylab("Abundancia")+
+  theme_light() 
+  
+
+# 24. Figura de Cajas - multiples variables
+ggplot(data = melt(datos[,c(1,4:9)]), aes(x=variable, y=value)) + 
+  geom_boxplot(aes(fill=cuenca))
+
+# Otra forma - multiples variables
+ggplot(melt(datos[,c(1,4:9)],id.var="cuenca"),aes(x=variable,y=value))+
+  geom_boxplot(aes(fill=cuenca))+   #Para cinturas, incluir "notch = T"
+  facet_wrap( ~ variable, scales="free")+
+  theme_classic()+
+  labs(x="",y="Abundancia")+
+  theme(axis.text.x=element_blank())
+
+
+
+#------------------
+# Figuras de tortas (Función "pie")
+str(datos)
+
+# Suma de las abundancias de los órdenes de insectos
+datos1  <- colSums(datos[,5:9])
+
+# 25. Piechart
+par(mfrow = c(2,2), mar = c(3, 3, 2, 1))
+#
+pie(datos1, main = "Figura Circular Ordinaria")
+#
+pie(datos1 , col = gray(seq(0.4,1.0,length=6)),
+clockwise=TRUE, main = "Escala de Grises", angle=45)
+#
+pie(datos1 , col = rainbow(6),clockwise = TRUE, 
+    main="Colores de Arcoiris")
+# 
+pie3D(datos1 , labels = names(datos1), explode = 0.1,  
+      main = "Figura Circular en 3D", labelcex=0.8)
+#
+par(datos)
+
+
+#------------------
+# Figuras de barras con líneas acotadas 
+# Zuur (2007)
+str(datos)
+
+# Promedios y desviaciones por cada cuenca
+datos.m <- tapply(datos$Ab, INDEX=datos$cuenca, FUN=mean)
+datos.de <- tapply(datos$Ab, INDEX=datos$cuenca, FUN=sd)
+
+# Tabla de de medias y desviaciones por cada cuencaA
+datos1<- cbind(datos.m, datos.de)
+datos1
+
+# 26. Figura de barras con líneas acotadas
+par(mfrow = c(2,1), mar = c(3, 5, 2, 1))
+bp = barplot(datos.m, ylab = "Abundancia ± d.e.", ylim=c(0,100))
+arrows(bp, datos.m, bp, datos.m + datos.de, lwd = 1.5,angle=90,length=0.1)
+
+bp = barplot(datos.m,ylab = "Abundancia  ± d.e.", col=rainbow(9), ylim=c(0,100))
+arrows(bp, datos.m, bp, datos.m + datos.de, lwd = 1.5, angle=90,length=0.1)
+box()
+par(mfrow = c(1,1))
+
+
+#------------------
+# Figuras de barras con líneas acotadas - ggplot2
+# Cargar "ggplot2" y "tidyverse"
+datos<-read.csv2("Datos1.csv")
+str(datos)
+
+attach(datos)
+# Resumen estadístico "dtos_resum"
+datos_resum <- datos %>% # Base de datos resumida
+  group_by(cuenca) %>%   # Factor o variable agrupadora
+  summarise(datos.m = mean(Ab),  # Media de cada grupo del factor
+            datos.de  = sd(Ab), # Desviacioes estándar de cada grupo
+            datos.var = var(Ab), # Varianzas de cada grupo
+            n.Ab = n(),  # Tamaño de cada grupo
+            datos.ee = sd(Ab)/sqrt(n())) # Error estándar de cada grupo
+datos_resum
+
+
+# 27. Figura de promedios y errores estándar
+DatosPlot<-
+  ggplot(datos_resum, aes(cuenca, datos.m)) + 
+  geom_bar(stat="identity") +  
+  geom_errorbar(aes(ymin=datos.m-datos.ee, 
+  ymax=datos.m+datos.ee),width=0.2)
+#
+print(DatosPlot + labs(y="Abundancia ± e.e.", x = "cuenca") + 
+      theme_classic())
+
+
+
+
+
+#------------------
+# EJEMPLO 2
+#------------------
+# Lectura de la base de datos
+datos1=read.csv2("datos2.csv",row.names=1)
+str(datos1)
+
+# Crear bases de datos por periodo de lluvia y grupos funcionales
+
+# Datos de Sequía (P1)
+datos.p1 = datos1[datos1$Lluvia == "P1",] # 
+Biom.p1 = datos.p1[,4]    # Biomasa en P1
+attach(datos.p1)
+Biom.p1 <- aggregate(datos.p1[,5],na.rm=TRUE, 
+          by=list(GF=GF),mean)    # Promedios de Biomasa por GF en P1
+Biom.p1
+
+# Datos de Lluvia (P2)
+datos.p2 = datos1[datos1$Lluvia == "P2",]
+Biom.p2 = datos.p2[,4]    # Biomasa en P2
+attach(datos.p2)
+Biom.p2 <- aggregate(datos.p2[,5],na.rm=TRUE, 
+          by=list(GF=GF),mean)    # Promedios de Biomasa por GF en P2
+Biom.p2
+
+# Tabla de biomasas para los dos periodos climáticos
+Biom <- round(cbind(P1=Biom.p1[,2], P2=Biom.p2[,2]),2)
+row.names(Biom) <- Biom.p1[,1]
+Biom
+
+
+# 27. Panel con cuatro figuras de barras
+par(mfrow = c(2,2), mar = c(3, 4, 2, 1))
+barplot(Biom[,1 ], main = "Biomasas en P1", ylab="Biom (mg)")
+barplot(Biom, main = "Biomasas generales")
+barplot(t(Biom), col = gray(c(0.5,1)), 
+        main = "Biomasas por GF", ylab="Biom (mg)")
+barplot(t(Biom), beside = TRUE, main = "Biomasas por GF")
+par(mfrow = c(1,1))
+
+
+
+#--------------
+# 28. Figura con dos factores (Lluvias y cuenca)
+
+# Crear base de datos con los dos factores, la variable y la desviación estándar
+datos2<-datos1%>%        # Base de datos
+        group_by(Lluvia,GF)%>%    # Factores 
+        summarise_at(vars(Biom),  # Promedio de biomasa
+        funs(mean(.,na.rm=TRUE),sd)) # Desviación estándar de biomasa
+datos2=datos2%>%rename(Biom=mean) # Nombre de los promedios
+datos2=datos2%>%rename(de=sd)  # Nombre de las desviacions estándar
+datos2  
+
+# Figura de columnas con colores automáticos (p) vs manuales (p2)
+p1 = ggplot(datos2, aes(x=GF, y=Biom, fill=Lluvia)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  geom_errorbar(aes(ymin=Biom, ymax=Biom+de), width=.2,
+                position=position_dodge(.9)) 
+
+# Figura
+p2=p1+labs(title="Biomasa por GF", x="Grupos Funcionales - GF", y = "Biomasa")+
+  theme_classic() +
+  scale_fill_manual(values=c('#E69F00','#999999'))
+grid.arrange(p1, p2, ncol=2)
+
+
+# 29. Figura de columnas con colores automáticos (p) vs manuales (p2)
+g2 <- ggplotGrob(p1)
+g3 <- ggplotGrob(p2)
+g <- rbind(g2, g3, size="first")
+g$widths <- unit.pmax(g2$widths, g3$widths)
+grid.newpage()
+grid.draw(g)
+
+
+
+
+#------------------
+# Figuras de tiras
+
+# Tamaño de la muestra (tm) para los datos de biomasas por cada cuenca = 8 muestreos
+datos.tm <- tapply(datos1$Biom, INDEX=datos1$GF, FUN=length)
+
+# Desviación estándar
+datos.de <- tapply(datos1$Biom, INDEX=datos1$GF, FUN=sd)
+
+# Promedios
+datos.m <- tapply(datos1$Ab, INDEX=datos1$GF, FUN=mean)
+
+# Error estándar
+datos.ee <- datos.de / sqrt(datos.tm) 
+
+# 30. Figura de promedios y errores estándar 
+stripchart(datos1$Biom ~ datos1$GF, vert = TRUE,
+   pch=1, method = "jitter", jit = 0.05, 
+   xlab = "Grupos Funcionales",ylab = "Biomasas (mg)")
+points (1:5,datos.m, pch = 16, cex = 1.5)
+
+# Líneas acotadas simbolizan los errores estandar (ee) 
+arrows (1:8, datos.m,1:8, datos.m + datos.de, lwd = 1.5,
+angle=90, length=0.1)
+arrows (1:8, datos.m,1:8, datos.m - datos.de, lwd = 1.5,
+angle=90, length=0.1)
+
+```
+

@@ -1,0 +1,42 @@
+---
+title: "Capítulo8.indc"
+author: "Javier Rodríguez Barrios"
+date: "5/7/2022"
+output: html_document
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+# Llamar en R a la base de datos "Microalgas.csv".
+datos<-read.csv2("Microalgas.csv",row.names=1)  
+
+# Librerías requeridas
+library(indicspecies)
+
+#-------------
+# Ajuste de las bases de datos biológica (tax) y fisiqcoquimica (amb)
+
+datos$Tributario = as.factor (datos$Tributario)   	# Convertir Tributario a factor
+
+# Variables ambientales
+amb=log10(datos[,c(2:11)]+1)
+
+# taxones de microalgas
+tax=datos[,c(12:32)]
+
+#-----------
+# Especies indicadoras en sitios (indval)
+indval = multipatt(tax, datos$Tributario,max.order=2, control = how(nperm=1000))
+indval
+
+# Especificidad (A) y fidelidad (B) de las sp indicadoras en sus grupos
+summary (indval, indvalcomp = TRUE)
+
+# Cálculo de los intervalos de confianza para los valores de indval.
+(indval1 = strassoc(tax, datos$Tributario, func = "IndVal.g", nboot = 1000)) 
+
+
+
+
+```
+

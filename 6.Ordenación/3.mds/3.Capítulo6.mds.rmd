@@ -1,0 +1,89 @@
+---
+title: "Capítulo6.nmds"
+author: "Javier Rodríguez Barrios"
+date: "27/6/2022"
+output:
+  html_document: default
+---
+
+# Ejemplo 4.  MDS o PCoA CON VARIABLES BIOLÓGICAS
+
+```{r, message= FALSE, warning= FALSE}
+# Librerías requeridas
+library(vegan)
+
+# Llamar a la base de datos "Insectos.csv"
+insecto<-read.csv2("Insectos.csv",row.names=1)
+insecto
+str(insecto)
+
+# Matriz de distancia Euclidea
+insecto.dist<-dist(insecto[,2:6])
+insecto.dist<-round(insecto.dist,1)
+insecto.dist
+
+# MDS con ndimensiones= número de observaciones
+insecto.mds<-cmdscale(insecto.dist,k=9,add=T,eig=T)
+round(insecto.mds$points,1)
+round(insecto.mds$eig,1)
+
+# MDS con 6 dimensiones (mayores que 1)
+insecto.mds<-cmdscale(insecto.dist,k=6,add=T,eig=T)
+insecto.mds
+round(insecto.mds$eig,1)
+
+# Primer criterio de selección de dimensiones (k) - valor absoluto
+sum(abs(insecto.mds$eig[1:5]))/sum(abs(insecto.mds$eig))
+
+# Primer criterio de selección de dimensiones (k) - 4 dimensiones
+sum(abs(insecto.mds$eig[1:4]))/sum(abs(insecto.mds$eig))
+
+# Segundo criterio de selección de dimensiones (k) - autovalores
+sum(abs(insecto.mds$eig[1:4]^2))/sum(abs(insecto.mds$eig)^2)
+
+# MDS con k= 4 dimensiones 
+insecto.mds4<-cmdscale(insecto.dist,k=4,add=T,eig=T)
+insecto.mds4
+names(insecto.mds4)
+
+round(insecto.mds4$points,1)
+round(insecto.mds4$eig,1)
+
+# Figuras del MDS
+x11()
+x<-insecto.mds4$points[,1]
+y<-insecto.mds4$points[,2]
+plot(y, y, xlab = "Dim 1", ylab = "Dim 2",
+     xlim = range(x)*1.2, type = "n")
+text(x,y, labels=row.names(insecto), col=4) 
+
+especies=envfit(insecto.mds4, insecto[,2:6])
+plot(especies,  col = 2, cex=0.8)
+
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+
+
+#----------------------------
+# MDS con distancia Bray Curtis (Borcard 2018 p 188)
+library(vegan)
+insecto.bray <- vegdist(insecto[,2:6])
+insecto.mds <- cmdscale(insecto.bray, k = (nrow(insecto) - 1), 
+                          add=T, eig = TRUE)
+
+# Figura de los sitios
+x11()
+ordiplot(scores(insecto.mds,  choices = c(1, 2)),type = "t",
+         main = "")
+abline(h = 0, lty = 3)
+abline(v = 0, lty = 3)
+
+especies=envfit(insecto.mds, insecto[,2:6])
+plot(especies,  col = "red", cex=0.8)
+
+
+```
+
+
+

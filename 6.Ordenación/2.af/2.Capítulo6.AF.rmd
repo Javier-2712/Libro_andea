@@ -1,0 +1,64 @@
+---
+title: "Capítulo 6 - AF"
+author: "Javier Rodríguez Barrios"
+date: "27/6/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+# Lectura de la base de datos 
+datos<-read.csv2("ambiental.csv",row.names=1)
+str(datos)
+
+# librerías
+library(GPArotation)
+library(scatterplot3d)
+
+
+#---------------
+# (1) Análisis sin la rotación de los factores del AF.
+datos<-as.matrix(log10(datos[,c(1:19)]+1))
+round(datos[1:5, 1:10],2) # Cinco primeras filas y 10 primeras columnas
+
+factor1<-factanal(datos,factors=1,method="mle")
+factor1
+
+factor4<-factanal(datos,factors=4,method="mle")
+factor4
+round(factor4$uniquenesses,3)
+
+scores4<-data.frame(factanal(datos,factors=4,method="mle",scores="regression")$scores)
+round(head(scores4),2)
+
+x11()
+
+with(scores4,plot(Factor2~Factor1,ylim=c(-1.5,2)))
+with(scores4,text(Factor1,Factor2,substr(row.names(scores4),1,3),
+                  col=4,pos=1,cex=0.5))
+abline(h=0,lty=2, col=2)
+abline(v=0,lty=2, col=2)
+
+
+
+#---------------
+# (2) Análisis con la rotación de los factores del AF.
+
+Fact.rot4<-factanal(datos,factors=4,method="mle",rotation="simplimax")
+Fact.rot4
+
+scor.rot4<-data.frame(factanal(datos,factors=4,method="mle",rotation="simplimax",scores="regression")$scores)
+scor.rot4
+
+x11()
+with(scor.rot4,plot(Factor2~Factor1,ylim=c(-2.5,2)))
+with(scor.rot4,text(Factor1,Factor2,substr(row.names(scores4),1,3),
+                    col=4,pos=1,cex=0.8))
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+with(scores4,scatterplot3d(Factor1,Factor2,Factor3,type="h",pch=19))
+with(scor.rot4,scatterplot3d(Factor1,Factor2,Factor3,type="h",pch=19))
+
+```
+

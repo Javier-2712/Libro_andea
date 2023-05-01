@@ -1,0 +1,241 @@
+---
+title: "Capítulo7.cla"
+author: "Javier Rodríguez Barrios"
+date: "4/7/2022"
+output:
+  html_document: default
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+# Llamar a la base de datos
+datos<- read.csv2("efem.bin.csv", row.names=1)
+
+str(datos)
+
+#-----------------------------------------------------------------------
+# LIBRERÍAS REQUERIDAS
+library(ellipse)
+require(gclus)
+require(SciViews)
+require(ade4)
+require(vegan)
+library(gplots)
+library(ggplot2)
+library(corrplot)
+library(factoextra)
+
+
+#--------------
+# Cuatro pasos para realizar el análisis de clúster (CLA)
+
+# PASO 1. Distancia entre observaciones
+# Matriz de distancia Jaccard
+d.jaccard <- vegdist(datos[,4:11], method="jaccard")
+round(d.jaccard,2)
+
+#--------------
+# (1) Vecino más cercano "Cl.single", comando "hclust" y método "single"
+Cl.single <- hclust(d.jaccard,method="single")
+# Figura del dendograma generado
+x11()
+
+# Figura del dendograma generado con el paquete factoextra
+x11()
+fviz_dend (Cl.single,         	# k grupos
+           cex = 0.7,                   # tamaño del texto de las observaciones
+           ylab = "Distancia Jaccard",	# Rotulo de la distancia
+           main = "Vecino más Cercano",	# Rotulo de título
+           lower_rect = 0,              # Inicio de los rectángulos en cero
+           ggtheme = theme_gray())		  # Fondo de la figura (gris)
+           
+
+
+
+#------------------------------------- 
+# PASO 2. Seleccionar mejor Método de agrupación
+# CORRELACIONES COFENÉTICAS 
+   
+# (1) Correlación cofenética  para "single"
+Cl.single <- hclust(d.jaccard,method="single")
+cofenet1 <- cophenetic(Cl.single)
+cor(d.jaccard,cofenet1)
+
+# (2) Correlación cofenética  para "complete"
+Cl.complete <- hclust(d.jaccard,method="complete")
+cofenet2<-cophenetic(Cl.complete)
+cor(d.jaccard,cofenet2)
+
+# (3) Correlación cofenética  para "average"
+Cl.upgma <- hclust(d.jaccard,method="average")
+cofenet3<-cophenetic(Cl.upgma)
+cor(d.jaccard,cofenet3)
+
+# (4) Correlación cofenética  para "mcquitty"
+Cl.wpgma <- hclust(d.jaccard,method="mcquitty")
+cofenet4<-cophenetic(Cl.wpgma)
+cor(d.jaccard,cofenet4)
+
+# (5) Correlación cofenética  para "centroid"
+Cl.upgmc <- hclust(d.jaccard,method="centroid")
+cofenet5<-cophenetic(Cl.upgmc)
+cor(d.jaccard,cofenet5)
+
+# (6) Correlación cofenética  para "mmedian"
+Cl.median <- hclust(d.jaccard,method="median")
+cofenet6<-cophenetic(Cl.median)
+cor(d.jaccard,cofenet6)
+
+# (7) Correlación cofenética  para "ward"
+Cl.ward <- hclust(d.jaccard,method="ward.D2")
+cofenet7<-cophenetic(Cl.ward)
+cor(d.jaccard,cofenet7)
+
+# data frame con cofenéticos
+cofeneticos = data.frame(simple=cor(d.jaccard,cofenet1),compl=cor(d.jaccard,cofenet2),
+                         upgma=cor(d.jaccard,cofenet3),upgmc=cor(d.jaccard,cofenet4),
+                         wpgma=cor(d.jaccard,cofenet5),wpgmc=cor(d.jaccard,cofenet6),
+                         ward=cor(d.jaccard,cofenet7))
+cofeneticos
+
+# cofenéticos por cada Métodos (Met)
+cofenet=data.frame(Met = 1:7,Cofen=t(round(cofeneticos,3)))
+cofenet
+
+# tabla con orden descendente de cofenéticos
+cof_ordenado = cofenet[order(cofenet$Cofen, decreasing = TRUE), ]
+cof_ordenado
+
+# guardar tabla como csv
+write.csv2(cof_ordenado,"cofenet.csv")
+
+
+
+#--------------
+# PASO 3. Número de grupos formados en el CLA
+source("función_silueta.r")
+
+# 1. Promedio de siluetas
+x11()
+# Opción 1
+fviz_nbclust(datos[,4:11], FUN = hcut, method = "silhouette")
+
+# Opción 2
+fviz_nbclust(datos[,4:11], FUN = kmeans, method = "silhouette")+
+  labs(subtitle = "Método de Silueta")
+
+
+# 2. Método de codo
+# Opción 2 (conociendo al Número de k grupos)
+fviz_nbclust(datos[,4:11], kmeans, method = "wss") +
+  geom_vline(xintercept = 3, linetype = 2)+
+  labs(subtitle = "Método de Codo")
+
+# 3. Estadística con intervalos
+# Opción 2 (conociendo al Número de k grupos)
+set.seed(123)
+fviz_nbclust(datos[,4:11], kmeans, nstart = 25, method = "gap_stat", nboot = 50)+
+  labs(subtitle = "Método de Intervalos")
+
+
+
+
+
+# --------------------------------------------------------------------
+# Dendograma final
+
+fviz_dend(Cl.upgma, k = 3,              # k grupos
+          cex = 0.7,                    # tamaño del texto de las observaciones
+          ylab = "Distancia Jaccard",	  # Rotulo de la distancia
+          main = "Unión Promedio no Ponderada (UPGMA)",    # Rotulo de título
+          lower_rect = 0,		  # Inicio de los rectángulos en cero
+          k_colors = c("#2E9FDF","#00AFBB","#FC4E07"),
+          color_labels_by_k = TRUE,    # Colores para cada grupo
+          rect = TRUE,                 # Rectángulos de cada grupo
+          ggtheme = theme_gray())               
+               
+
+# Figura del cluster
+grp <- cutree(Cl.upgma, k = 3)
+fviz_cluster(list(data = datos[,4:11], cluster = grp),
+             palette = c("#2E9FDF", "#00AFBB", "#FC4E07"),
+             ellipse.type = "convex",          # Concentration ellipse
+             repel = TRUE,                     # Avoid label overplotting (slow)
+             show.clust.cent = FALSE, ggtheme = theme_minimal())
+
+
+
+
+
+#------------------------
+# PASO 4. Variables que mejor clasifican (Mapas de Calor)
+
+# Base de datos sin row.names=1
+datos1<- read.csv2("efem.bin.csv")
+
+str(datos1)	# Estructura de la base de datos.
+
+# Transformación de Hellinger (datos[,4:11]), para linealizar a las variables
+datos[,4:11]=decostand(datos1[,c(5:12)],method="total")
+
+# Selección de las variables cuantitativas en formato matricial       
+datos2<-as.matrix(datos[,4:11])
+round(datos2,2)
+
+# Selección de la primera columna para graficar a las observaciones (tramos y muestreos)
+rownames(datos2)<-datos1[,1]
+round(datos2,2)
+
+# 1. Mapa de calor por cada observación, con el paquete stats
+hv <- heatmap(datos2, margins=c(6,5), xlab ="Taxones de Efemerópteros", 
+              ylab= "Tramos y muestreos en el río", main = "Caracterización de Tramos",
+              scale = "column",distfun = vegdist, method="average")
+
+
+help(heatmap)
+
+
+
+#-----------------
+# 2. Mapa de calor para los promedios de cada tramo del río.
+datos<-read.csv2("efem.csv", row.names=1)	# Llamar a la base de datos con row.names=1
+datos<-na.exclude(datos)
+attach(datos)
+
+# Transformación de Hellinger (datos[,4:11]), para linealizar a las variables
+datos[,4:11]=decostand(datos[,c(4:11)],method="total")
+
+# Cálculo de las medias para cada tramo del río
+datos1<- aggregate(datos[,4:11],na.rm=TRUE, 
+                   by=list(Tramo=datos$TRAMO),mean)
+
+# Selección de las variables cuantitativas en formato matricial       
+datos2<-as.matrix(datos1[,2:9])
+round(datos2,2)
+
+# Selección de la primera columna para graficar a las observaciones (tramos)
+rownames(datos2)<-datos1[,1]
+round(datos2,2)		# Visualización de los datos
+
+#--------------
+# 1. Mapa de calor con los promedios de abundancia por tramos - paquete vegan
+x11()
+hv <- heatmap(datos2, margins=c(6,5), distfun = vegdist,
+              xlab ="Taxones de Efemerópteros", 
+              ylab= "Tramos del río", main = "Caracterización de Tramos")    
+
+
+
+#--------------
+# 2. Mapa de calor con los promedios de abundancia por tramos - paquete gplots
+dev.new(title = "Mapa de calor",width = 10,noRStudioGD = TRUE)
+x11()
+hclust.ave <- function(datos2) hclust(datos2, method="average")
+heatmap.2(datos2, scale = "none", col = bluered(100), 
+          xlab ="Taxones de Efemerópteros", 
+          ylab= "TRamos del río", main = "Caracterización de Tramos",
+          trace = "none", density.info = "none",distfun = vegdist,
+          margins=c(6,5), hclustfun=hclust.ave)
+
+```
+

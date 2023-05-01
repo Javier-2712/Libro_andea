@@ -1,0 +1,238 @@
+---
+title: "Capítulo7.distancias"
+author: "Javier Rodríguez Barrios"
+date: "3/7/2022"
+output:
+  html_document: default
+---
+
+
+```{r, message= FALSE, warning= FALSE}
+# Ejemplo 1
+# Coeficientes para datos binarios
+
+# Llamar en R a la base de datos “efem.csv”.
+datos<-read.csv2("efem.csv",row.names=1)
+
+
+#--------------
+# Librerías requeridas
+library(stats)
+library(vegan)
+library(analogue)
+library(gclus)
+library(ggplot2)
+library(factoextra)
+library(adespatial)
+
+#---------------------
+#
+str(datos)
+
+# a. Jaccard
+A<-vegdist(datos[,4:11], 
+           method="jaccard", binary=TRUE )  # Similitud de 28 observaciones
+
+A<-vegdist(datos[1:5, 4:11], method="jaccard",binary=TRUE )
+round(A,2)
+
+# b. Sorensen
+A<-vegdist(datos[1:5, 4:11],binary=TRUE)
+round(A,2)
+
+# c. Ochiai (S14) 
+A <- dist.ldc(datos[1:5, 4:11], method="ochiai")
+round(A,2)
+
+
+
+# Cambiar las variables cuantitativas a binarias 
+names(datos)
+datos$Batds=ifelse(datos$Batds>0,1,datos$Batds)
+datos$Lpthy=ifelse(datos$Lpthy>0,1,datos$Lpthy)
+datos$Trcry=ifelse(datos$Trcry>0,1,datos$Trcry)
+datos$Prbtd=ifelse(datos$Prbtd>0,1,datos$Prbtd)
+datos$Cmlbt=ifelse(datos$Cmlbt>0,1,datos$Cmlbt)
+datos$Thrld=ifelse(datos$Thrld>0,1,datos$Thrld)
+datos$Lchln=ifelse(datos$Lchln>0,1,datos$Lchln)
+datos$Trpds=ifelse(datos$Trpds>0,1,datos$Trpds)
+
+str(datos)
+#
+
+
+#---------------------
+# a. Jaccard
+A<-vegdist(datos[1:5, 4:11], method="jaccard" )
+round(A,2)
+
+# b. Sorensen
+A<-vegdist(datos[1:5, 4:11],binary=TRUE)
+round(A,2)
+
+
+#------------
+# Ejemplo 2
+# Distancias para datos de abundancia
+datos<-read.csv2("efem.csv",row.names=1)
+str(datos)
+
+#-----------
+# (1) Distancias métricas (D1, D3 , D15 y D17).
+# a. Euclidea
+# Paquete stats
+A<-dist(datos[,4:11])
+A<-dist(datos[1:5, 4:11])
+round(A,2)              
+
+# paquete vegan
+A<-vegdist(datos[,4:11], method="euclidean")
+A
+A<-vegdist(datos[1:5, 4:11], method="euclidean")
+round(A,2) 
+
+
+# Paquete analogue
+A<-distance(datos[,4:11], method="euclidean")
+A
+A<-distance(datos[1:5, 4:11], method="euclidean")
+round(A,1) 
+
+
+#-------------
+# b. Cuerda (D3)
+
+# paquete vegan
+A<-vegdist(datos[,4:11], method="chord")
+A
+A<-vegdist(datos[1:5, 4:11], method="chord")
+round(A,2)
+
+# paquete analogue
+A<-distance(datos[,4:11], method="chord")
+A
+A<-distance(datos[1:5, 4:11], method="chord")
+round(A,1) 
+
+
+#------------
+# c. Distancia Chi Cuadrado (D15)
+
+# paquete vegan
+A<-vegdist(datos[,4:11], method="chisq")
+A
+A<-vegdist(datos[1:5, 4:11], method="chisq")
+round(A,2)
+
+# Paquete analogue
+A<-distance(datos, method="chi.distance")
+A
+
+
+#-------------
+# d. Distancia Hellinger (D17)
+
+# paquete vegan
+d.h <- decostand(datos[1:5, 4:11], method = "hellinger")
+A <- dist(d.h, method = "euclidean")
+round(A,2)
+
+
+
+#-------------
+# (2) Distancia semimétrica (D14).
+# Distancia Bray (D14)
+
+# paquete vegan
+A<-vegdist(datos[1:5, 4:11],method="bray")
+A
+A<-vegdist(datos[1:5, 4:11], method="bray")
+round(A,2)
+
+A<-distance(datos,method="bray")
+A
+
+
+
+
+#--------------
+# Gráficas de distancias 
+datos<-read.csv2("efem.csv",row.names=1)
+str(datos)
+
+# a. Figura del paquete gclust
+# Fuente de la figura
+source("coldiss.R") 
+
+# Distancia Euclidea
+A <- vegdist(datos[1:5, 4:11], Method="euclid")
+
+# Figuras de disimilitud
+coldiss(A, byrank=FALSE, diag=TRUE)
+
+
+
+# b. Figura del paquete factoextra
+
+A <- dist(x = datos[1:5, 4:11], method = "euclidean")
+A
+
+fviz_dist(dist.obj = A, lab_size = 10, order = FALSE) +
+         theme(legend.position = "none") 
+         
+
+
+
+
+
+
+#===============
+# Ejemplo 3
+# Distancias con datos ambientales
+datos<-read.csv2("Fisquim.csv",row.names=1)
+str(datos)
+
+# Librerías requeridas
+library(stats)
+library(vegan)
+library(analogue)
+library(gclus)
+library(ggplot2)
+library(factoextra)
+library(adespatial)
+
+
+#-----------
+# a. Euclidea
+
+# paquete vegan
+A<-vegdist(datos[1:6, 3:20], "euclid")
+round(A,1)
+
+#
+A<-vegdist(scale(datos[1:6, 3:20]), "euclid")
+round(A,1)
+
+#
+A<-vegdist(log10(datos[1:6, 3:20]+1), "euclid")
+round(A,1)
+
+# Normalización
+d.n <- decostand(datos[1:6, 3:20], "normalize")
+A <- dist(d.n, method = "euclidean")
+round(A,3) 
+
+
+#----------------
+# Figuras
+# b. Figura del paquete factoextra
+
+A <- dist(x = log10(datos[1:6, 3:20]+1), method = "euclidean")
+round(A,1)
+
+fviz_dist(dist.obj = A, lab_size = 10, order = FALSE) +
+  theme(legend.position = "none")
+
+
+```
+

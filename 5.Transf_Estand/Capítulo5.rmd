@@ -1,0 +1,404 @@
+---
+title: "Capítulo5"
+author: "Javier Rodríguez Barrios"
+date: "25/6/2022"
+output:
+  html_document: default
+---
+
+```{r, message= FALSE, warning= FALSE}
+#-----------
+# Ejemplo 1.Histogramas de frecuencia
+# Lectura de la base de datos.
+aves<-read.csv2("Aves.csv",row.names=1)
+# Paquete requerido
+library(lattice)
+# Realización de los histogramas
+histogram(~Longitud.total, data=aves,nint= 7, 
+          xlab = "Longitud Total de Aves (mm)", ylab = "Frecuencias")
+histogram(~log10(Longitud.total), data=aves, nint= 7,  
+          xlab=expression(log[10]*(Longitud_Total)),ylab="Frecuencias")
+histogram(~log(Longitud.total), data=aves, nint= 7, 
+          xlab = expression(log[10]*(Longitud_Total)), ylab = "Frecuencias")          
+histogram(~sqrt(Longitud.total), data=aves, nint= 7, 
+          xlab = "(Longitud Total)^1/2", ylab = "Frecuencias")
+histogram(~sqrt(sqrt(Longitud.total)), data=aves, nint= 7, 
+          xlab = "Raíz Cuarta (Longitud Total de Aves)", ylab = "Frecuencias")
+
+
+
+#----------------
+# Ejemplo 2. Transformaciones y estandarizaciones generales
+
+# Lectura de la base de datos
+datos<-read.csv2("Insectos.csv",row.names=1) 
+datos<-datos[,2:6]
+head(datos)
+# Paquete requerido
+library (vegan) 
+
+# 1.) Transformaciones monotónicas
+# Transformación raíz cuadrada
+datos.r= sqrt(datos)
+(round(head(datos.r),1))
+
+# Transformación logarítmica
+datos.log= log10(datos)
+(round(head(datos.r),1))
+
+# Frecuencia relativa, por especies
+datos.fr= prop.table(datos, margin=NULL)
+
+# Frecuencia relativa de sitios
+datos.s.fr <- decostand(datos, "total", MARGIN = 2) 
+
+# Transformación arcoseno
+daros.arc1= asin(sqrt(datos.fr))*180/pi
+(round(head(daros.arc1),1))
+
+# Proporciones para transformación arcoseno
+datos.prop <- datos / apply(datos,1,sum) 
+
+# Transformación arcoseno
+daros.arc2= asin(sqrt(datos.fr))*180/pi
+(round(head(daros.arc2),1))
+
+
+# 2.) Suavisamiento (Beals)
+# Lectura de datos 
+datos.belt <- beals(datos)
+(round(head(datos.belt),1))
+
+
+# 3.) Estandarizaciones 
+# 3.1 Máximo por columnas (variables) 
+# Máximo para especies
+datos.c <- decostand(datos, "max",1)
+(round(head(datos.c),1))
+
+# Relación media y desviación - Puntaje Z
+datos.s <- scale(datos)
+(round(head(datos.s),1))
+
+# 3.2 Estandarización para filas (sitios) 
+# Máximo para sitios
+datos.f =decostand(datos, "max", 2) 
+(round(head(datos.f),1)) 
+
+# Normalización
+datos.norm <- decostand(datos, "normalize")
+(round(head(datos.norm),1)) 
+
+# Hellinger 
+datos.hell <- sqrt(datos / apply(datos,1,sum))
+(round(head(datos.hell),1)) 
+
+# 3.2 Doble estandarización (filas y columnas)
+# Chi Cuadrado
+datos.chi <- decostand(datos, "chi.square")
+(round(head(datos.chi),1)) 
+
+# Wisconsin
+datos.wis <- wisconsin(datos)
+(round(head(datos.wis),1))
+
+
+
+# Figuras de cajas con algunas transformaciones para los coleópteros
+
+par(mfrow = c(2,2))
+boxplot(datos$Coleop, sqrt(datos$Coleop), log10(datos$Coleop), las = 1,cex=5, 
+        main = "Transformaciones simples", names = c("datos crudos", "raíz", "log"), col = "bisque")
+
+boxplot(datos.c$Coleop, datos.fr$Coleop, las = 1, 
+        main = "Estandarizaciones para especies",names = c("max", "total"), col = "lightgreen")
+
+boxplot(datos.hell$Coleop, datos.s.fr$Coleop, datos.norm$Coleop, las = 1, 
+        main = "Estandarizaciones para sitios",names = c("Hellinger", "total", "norm"), col = "lightblue")
+
+boxplot(datos.chi$Coleop, datos.wis$Coleop, las = 1, 
+        main = "Doble estandarización", names = c("Chi-cuadrado", "Wisconsin"), col = "orange")
+
+# Se cierra el panel diseñado 
+par(mfrow = c(1,1))
+
+
+
+
+
+#---------------
+# Ejemplo 3. Regla de Abultamiento
+
+# Lectura de la base de datos
+aves<-read.csv2("Aves.csv",row.names=1)
+attach(aves)
+
+# Figura exploratoria
+plot (Longitud.total, Cuerda.Alar,xlab="Longitud Total (mm)", 
+      ylab="Cuerda Alar (mm)", main="Relación de las variables")
+
+# Se presenta un leve abultamiento hacia el cuadrante 4
+
+# Regresión 1. Para los datos crudos (aves.rlm1).
+aves.rlm1 <- lm(Cuerda.Alar ~ Longitud.total, data = aves)
+summary(aves.rlm1)
+
+# Regresión 2. Elevando LT al cuadrado (aves.rlm2).
+aves.rlm2 <- lm(Cuerda.Alar ~ Longitud.total^2, data = aves)
+summary(aves.rlm2)
+
+# Regresión 3. Calculando la raíz cuadrada de la cuerda alar (aves.rlm3).
+aves.rlm3 <- lm(sqrt(Cuerda.Alar) ~ Longitud.total, data = aves)
+summary(aves.rlm3)
+
+# Regresión 4. Calculando el logaritmo de la cuerda alar (aves.rlm4).
+aves.rlm4 <- lm(log10(Cuerda.Alar) ~ Longitud.total, data = aves)
+summary(aves.rlm4)
+
+
+# Panel gráfico (par) para incluir las 4 figuras. 
+aves.par <- par(mfrow = c(2,2), oma = c(0,0,1.1,0)) 
+
+# Figura de la regresión 1
+plot (Longitud.total, Cuerda.Alar,xlab="Longitud Total (mm)", 
+      ylab="Cuerda Alar (mm)", main="y = 20.4+0.45*(x)")
+lines(lowess(Longitud.total, Cuerda.Alar),col=3, lty=2)
+abline(aves.rlm1, col=2)
+
+# Figura de la regresión 2
+plot (Longitud.total^2, Cuerda.Alar, xlab="[Longitud Total (mm)]^2", 
+      ylab="Cuerda Alar (mm)",main="y = 20.37+0.45*(x)")
+lines(lowess(Longitud.total^2, Cuerda.Alar),col=3, lty=2)
+abline(aves.rlm2, col=2) # no funciona
+
+# Figura de la regresión 3
+plot (Longitud.total,sqrt(Cuerda.Alar), xlab="Longitud Total (mm)", 
+      ylab="[Cuerda Alar (mm)]^1/2", main="y = 5.7+0.024*(x)")
+lines(lowess(Longitud.total,sqrt(Cuerda.Alar)),col=3, lty=2)
+abline(aves.rlm3, col=2, lty=2)
+
+# Figura de la regresión 4 
+plot(log10(Cuerda.Alar) ~ (Longitud.total), xlab="Longitud Total (mm)",
+     ylab="log10(cuerda alar)", main="y = 1.58+0.002*(x)")
+lines(lowess(Longitud.total,log10(Cuerda.Alar)),col=3, lty=2)
+abline(aves.rlm4, col=2, lty=2)
+# Se cierra el panel diseñado 
+par(aves.par)
+
+
+#--------------
+# Ejemplo 4. Ley de Potencias de Taylor
+
+# 1. Lectura de la base de datos
+aves<-read.csv2("Aves.csv",row.names=1) 
+attach(aves)
+
+# 2. Datos de las variables por cada tipo de dieta
+C <- aves[aves$Dieta=="C",]
+I <- aves[aves$Dieta=="I",]
+F <- aves[aves$Dieta=="F",]
+N <- aves[aves$Dieta=="N",]
+G <- aves[aves$Dieta=="G",]
+
+# 3. Calculo de medias y varianzas de la variable "longitud total" por cada tipo de dieta
+c.media <-mean(C$Longitud.total)
+c.var   <-var(C$Longitud.total)
+i.media <-mean(I$Longitud.total)
+i.var   <-var(I$Longitud.total)
+f.media <-mean(F$Longitud.total)
+f.var   <-var(F$Longitud.total)
+n.media <-mean(N$Longitud.total)
+n.var   <-var(N$Longitud.total)
+g.media <-mean(G$Longitud.total)
+g.var   <-var(G$Longitud.total)
+
+# 4. Vector de medias (m) para los diferentes tipos de dieta 
+medias<- c(c.media,i.media,f.media,n.media,g.media)
+
+# 5. Vector de varianzas (S2) para los diferentes tipos de dieta 
+varianzas<- c(c.var,i.var,f.var,n.var,g.var)
+
+# 6. Figura que relaciona a las varianzas y las medias 
+plot(log(medias),log(varianzas))
+lines(abline(lm(log(varianzas)~ log(medias)) ,col=4))
+lines(lowess(log(medias),log(varianzas)),col=2, lty=2)
+
+# 7. Regresión robusta entre los logaritmos de las varianzas y las medias de la longitud total
+summary(lm(log(varianzas)~ log(medias)))
+
+# 8 Diagnostico de los residuales de la regresión varianza - media
+aves.par <- par(mfrow = c(2,2), oma = c(0,0,1.1,0)) 
+plot(lm(log(varianzas)~ log(medias)), las = 1) 
+par(aves.par)
+
+
+# 1. Tabulación de los datos transformados (LT.tr), por el reciproco.
+LT.tr <- 1/(aves$Longitud.total)
+tabla <- data.frame(Dieta, LT.tr)
+
+# 2. Datos de las variables por cada tipo de dieta
+C.tr <- tabla[tabla$Dieta=="C",]
+I.tr <- tabla[tabla$Dieta=="I",]
+F.tr <- tabla[tabla$Dieta=="F",]
+N.tr <- tabla[tabla$Dieta=="N",]
+G.tr <- tabla[tabla$Dieta=="G",]
+
+# 3. Calculo de medias y varianzas de la variable transformada "LT.tr" por cada tipo de dieta
+c.media.tr <-mean(C.tr$LT.tr)
+c.var.tr   <-var(C.tr$LT.tr)
+i.media.tr <-mean(I.tr$LT.tr)
+i.var.tr   <-var(I.tr$LT.tr)
+f.media.tr <-mean(F.tr$LT.tr)
+f.var.tr   <-var(F.tr$LT.tr)
+n.media.tr <-mean(N.tr$LT.tr)
+n.var.tr   <-var(N.tr$LT.tr)
+g.media.tr <-mean(G.tr$LT.tr)
+g.var.tr   <-var(G.tr$LT.tr)
+
+# 4. Vector de medias (medias.tr) para los diferentes tipos de dieta 
+medias.tr<- c(c.media.tr,i.media.tr,f.media.tr,n.media.tr,g.media.tr)
+
+# 5. Vector de varianzas (varianzas.tr) para los diferentes tipos de dieta 
+varianzas.tr<- c(c.var.tr,i.var.tr,f.var.tr,n.var.tr,g.var.tr)
+
+# 6. Figura que relaciona a las varianzas y las medias 
+plot(log(medias.tr),log(varianzas.tr))
+lines(abline(lm(log(varianzas.tr)~log(medias.tr)) ,col=4))
+lines(lowess(log(medias.tr),log(varianzas.tr)),col=2, lty=2)
+
+# 7. Regresión robusta entre los logaritmos de las varianzas y las medias de la longitud total
+summary(lm(log(varianzas.tr)~ log(medias.tr)))
+
+# 8 Diagnostico de los residuales de la regresión varianza - media
+aves.par.tr <- par(mfrow = c(2,2), oma = c(0,0,1.1,0)) 
+plot(lm(log(varianzas.tr)~ log(medias.tr)), las = 1) 
+par(aves.par.tr)
+
+
+
+#--------------
+# Ejemplo 5. TRansformación Boxcox
+# NO se tendrá en cuenta el tipo de dieta
+
+# 1. Lectura de la base de datos
+aves<-read.csv2("Aves.csv",row.names=1) 
+attach(aves)
+library(car)
+
+# 2. Transformación para la variable LT. Comando "powerTransform" 
+boxcox1 <- powerTransform(Longitud.total)
+summary (boxcox1)
+
+# 3. Figura qqPlot para los datos crudos y los transformados
+aves.par <- par(mfrow = c(1,2)) 
+qqPlot(Longitud.total, xlab="Quantiles normales",	
+       ylab="Longitud Total (mm)")
+qqPlot(Longitud.total^-0.3819, xlab="Quantiles normales",
+       ylab="[Longitud Total (mm)]^-0.3819")
+par(aves.par)
+
+
+
+
+#--------------
+# Ejemplo 6. TRansformación Boxcox
+# SI tendrá en cuenta el tipo de dieta
+
+# 1. Lectura de la base de datos
+aves<-read.csv2("Aves.csv",row.names=1) 
+attach(aves)
+library(car)
+
+# 2. Transformación de LT, por los diferentes tipos de dietas. 
+boxcox2 <- powerTransform(Longitud.total ~ Dieta, aves)
+summary (boxcox2)
+
+# 3. Figura qqPlot para los datos crudos y los transformados
+aves.par <- par(mfrow = c(1,2)) 
+qqPlot(Longitud.total, xlab="Quantiles normales",  ylab="Longitud Total (mm)") 
+qqPlot(Longitud.total^-0.3129, xlab="Quantiles normales", ylab="[Longitud Total (mm)]^-0.3129") 
+
+# 4. Prueba de bondad de ajuste de la normalidad de LT.
+shapiro.test(aves$Longitud.total)
+shapiro.test(aves$Longitud.total^-0.3819)
+
+# 5. Variables por cada tipo de dieta
+N <- aves[aves$Dieta=="N",]
+G <- aves[aves$Dieta=="G",]
+
+# 6. Prueba de normalidad de LT por cada tipo de dieta.
+shapiro.test(F$Longitud.total)
+shapiro.test(I$Longitud.total)
+
+# 7. Prueba de normalidad de LT transformada, por cada tipo de dieta.
+shapiro.test(F$Longitud.total^-0.3819)
+shapiro.test(I$Longitud.total^-0.3819)
+
+# 8. Análisis grafico por figuras de densidad.
+library(lattice)
+densityplot(~F$Longitud.total, data=aves, xlab=" Longitud Total (mm)",	ylab="Frecuencias - Frugívoros")
+densityplot (~I$Longitud.total, data=aves, xlab=" Longitud Total (mm)",	ylab="Frecuencias - Insectívoros")
+densityplot (~F$Longitud.total^-0.3819, data=aves, xlab=" Longitud Total^-0.3819", 
+             ylab="Frecuencias - Frugívoros")
+densityplot (~I$Longitud.total^-0.3819, data=aves, xlab=" Longitud Total^-0.3819",	
+             ylab="Frecuencias - Insectívoros")
+
+
+
+#---------------
+# Ejemplo 7. Transformación Boxcox para tres variables
+
+# 1. Lectura de la base de datos
+aves<-read.csv2("Aves.csv",row.names=1) 
+attach(aves)
+library(car)
+
+# 2. Transformación de las tres variables. 
+boxcox3<-powerTransform(cbind(Longitud.total,Cuerda.Alar,Comisura))
+summary (boxcox3)
+
+# 3. Figuras de dispersión para los datos crudos y los transformados
+aves.par.tr <- par(mfrow = c(1,2))
+plot(Longitud.total, Cuerda.Alar)
+lines(lowess(Longitud.total, Cuerda.Alar),col=2, lty=2)
+
+plot(bcPower(Longitud.total,-0.2663), bcPower(Cuerda.Alar,-0.2962))
+lines(lowess(bcPower(Longitud.total,-0.2663),bcPower(Cuerda.Alar,-0.2962)),col=2,lty=2	)
+
+plot(Cuerda.Alar,Comisura) 
+lines(lowess(Cuerda.Alar,Comisura),col=2, lty=2)
+
+plot(bcPower(Cuerda.Alar,-0.2962), bcPower(Comisura,0.0167))
+lines(lowess(bcPower(Cuerda.Alar,-0.2962), bcPower(Comisura,0.0167)),col=2, lty=2)
+
+plot(Longitud.total,Comisura)
+lines(lowess(Longitud.total,Comisura),col=2, lty=2)
+
+plot(bcPower(Longitud.total,-0.2663), bcPower(Comisura,-0.0167))
+lines(lowess(bcPower(Longitud.total,-0.2663), bcPower(Comisura,-0.0167)),col=2, lty=2)
+par(aves.par.tr)
+
+# 4. Prueba de bondad de ajuste de la normalidad para cada variable.
+shapiro.test(aves$Longitud.total)
+shapiro.test(Longitud.total^-0.2663)
+shapiro.test(aves$ Cuerda.Alar)
+shapiro.test(Cuerda.Alar^-0.2962)
+shapiro.test(aves$ Cuerda.Alar)
+shapiro.test(Comisura^-0.0167)
+
+# 5. Prueba de bondad de ajuste de la normalidad multivariada.
+# Variables crudas (x), variables transformadas (x.tr), 
+# estadístico multivariado de Shapiro (mshapiro).
+
+library(mvnormtest)
+attach(aves)
+x <- as.matrix(t(cbind(Longitud.total,Cuerda.Alar,Comisura)))
+mshapiro.test(x)
+
+x.tr <- as.matrix(t(cbind(Longitud.total^-0.2663, Cuerda.Alar^-0.2962, Comisura^-0.0167)))
+mshapiro.test(x.tr)
+
+mshapiro.test(x)
+mshapiro.test(x.tr)
+```
+

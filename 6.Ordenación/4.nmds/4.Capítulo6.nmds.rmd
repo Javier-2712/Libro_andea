@@ -1,0 +1,161 @@
+---
+title: "Capítulo6.nmds"
+author: "Javier Rodríguez Barrios"
+date: "27/6/2022"
+output: html_document
+---
+
+# Ejemplo 4.  NMDS CON DATOS DE PRESENCIA-AUSENCIA
+
+```{r, message= FALSE, warning= FALSE}
+
+datos<-read.csv2("malezas.csv",row.names=1)  
+
+# LIBRERÍAS REQUERIDAS
+library (ade4)
+require(vegan)
+library(analogue)
+library(magrittr)
+library(dplyr)
+library(ggpubr)
+library(vegan)
+library(ggplot2)
+library(ggrepel)
+
+str(datos)
+
+
+#-----------------------------
+# 1. nMDS con paquete "vegan"
+datos.nmds <- metaMDS(datos[,3:52],trace = FALSE,distance = "jaccard")
+datos.nmds
+
+# nMDS con solapamiento de taxones
+x11()
+fig=plot(datos.nmds, type = "t",display = c("n", "species"),
+         ylab="Dim 2", xlab="Dim 1", cex=0.7,shrink = FALSE)
+text(datos.nmds, display="sites", labels = as.character(datos$Finca), 
+     cex=0.7, col="blue", lwd=1.5, pos=3)
+points(datos.nmds, display = "sites",cex = 0.8, 
+       col = "lightblue", lwd=1.5)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+
+# nMDS SIN solapamiento de taxones
+x11()
+fig=plot(datos.nmds, type = "n",display = c("n", "species"),
+         ylab="Dim 2", xlab="Dim 1", ex=0.7,shrink = FALSE)
+text(datos.nmds, display="sites", labels = as.character(datos$Finca), 
+     cex=0.7, col="blue", lwd=1.5, pos=3)
+ordi=orditorp(datos.nmds, display = "species", 
+     shrink = FALSE, col = "red", type="n") 
+points(datos.nmds, display = "sites",cex = 0.7, 
+       col = "lightblue", lwd=1.5)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+# nMDS por Regiones - Ordiellipse
+x11()
+fig=plot(datos.nmds, type = "n",display = c("sites", "species"),
+         ylab="Dim 2", xlab="Dim 1", cex=0.6,shrink = FALSE)
+text(datos.nmds, display="sites", labels = as.character(datos$Finca), 
+     cex=0.6, col="blue", lwd=1.5, pos=3)
+points(datos.nmds, labels = as.character(datos$Región), 
+       display = "sites", cex = 0.6, col = "blue", lwd=1.5)
+ordi=orditorp(datos.nmds, display = "species", shrink = FALSE, col = "red", type="n") 
+
+ordiellipse(datos.nmds, datos$Región, scaling = "symmetric", conf=0.95, kind = "se",
+            lwd=2)
+ordibar(datos.nmds, datos$Región, kind="se", conf=0.95, lwd=1,cex.lab=0.8, 
+        label=TRUE)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+
+# nMDS con ordihull y ordispider
+x11()
+plot(datos.nmds, type = "n",display = c("species"),
+     ylab="Dimensión 2", xlab="Dimensión 1",
+     cex=0.7,cex.lab=1.3)
+abline(h=0,lty=2)
+abline(v=0,lty=2)
+
+text(datos.nmds, display="sites", labels = as.character(datos$Finca), 
+     cex=0.6, col="blue", lwd=1.5, pos=3)
+orditorp(datos.nmds, display = "species", shrink = FALSE, col = "red", type="n") 
+ordihull(datos.nmds, datos$Región, scaling = "symmetric", col = 1:4,
+         draw="polygon")
+ordispider(datos.nmds, datos$Región, label=TRUE, kind="se", conf=0.95)
+
+
+
+#-----------
+# nMDS con paquete "ggplot2"
+
+# Escalamiento tipo Araña.
+
+# Escores (scrs) o puntajes, son las coordenadas de las fincas por localidades.
+scrs <- scores(datos.nmds, display = 'sites')
+# Coordenadas por cada grupo de localidades.
+scrs <- cbind(as.data.frame(scrs), Región = datos$Región)
+
+# Centroides (cent) o promedios de cada localidad.
+cent <- aggregate(cbind(NMDS1, NMDS2) ~ Región, data = scrs, FUN = mean)
+# Dibujar araña
+segs <- merge(scrs, setNames(cent, c('Región','oNMDS1','oNMDS2')),
+              by = 'Región', sort = FALSE)
+ggplot(scrs, aes(x = NMDS1, y = NMDS2, colour = Región)) +
+  geom_segment(data = segs, 
+               mapping = aes(xend = oNMDS1, yend = oNMDS2)) + 	# araña
+  geom_point(data = cent, size = 5) +                         			# centroides
+  labs(y="Dimensión 1", x = "Dimensión 2") +			# rótulos de los ejes
+  geom_point()                      +                        		 		# escores
+  coord_fixed()           
+
+
+
+#-----------------------------
+# Otras opciones gráficas con ggplot2
+
+# Correr el Escalamiento - nMDS
+names(datos.nmds)
+
+# 1) Coordenadas de los sitios y el factor (coord.sit)
+coord.sit <- as.data.frame(datos.nmds$points)   # Coordenadas de los sitios
+coord.sit$sitio <- rownames(coord.sit)          # Crear una columna con nombres de los sitios
+coord.sit$grp <- datos$Región                   # Adicionar columna de grupos por región
+head(coord.sit)                                 # vista resumida de las coordenadas de stios
+
+
+# 2) Coordenadasde las especies (coord.tax) 
+coord.tax <- as.data.frame(datos.nmds$species)  # Dos primeros ejes
+coord.tax$especies <- rownames(coord.tax)       # Insertar columna con nombres de las especies
+head(coord.tax) 
+
+
+# 3) Opciones Gráficas del nMDS
+# 3.1) Figura las fincas, las especies y las regiones
+# Para columnas Fincas "label = as.character(datos$Finca)"
+x11()
+ggplot() +
+  # Sitios
+  geom_text_repel(data = coord.sit,aes(MDS1,MDS2,label = as.character(datos$Finca)),
+                  size=4)+   # Muestra el cuadro de la figura
+  geom_point(data = coord.sit,aes(MDS1,MDS2,colour=grp),size=4)+
+  scale_shape_manual(values = c(21:25))+
+  # Especies  
+  geom_segment(data = coord.tax,aes(x = 0, y = 0, xend = MDS1, yend = MDS2), 
+               arrow = arrow(angle=0,length = unit(0,"cm"),
+                             type = "closed"),linetype=0, size=0,colour = "red")+
+  geom_text_repel(data = coord.tax,aes(MDS1,MDS2,label=especies),colour = "red")+
+  #Factor
+  geom_polygon(data=coord.sit,aes(x=MDS1,y=MDS2,fill=grp,group=grp),alpha=0.30) +
+  geom_hline(yintercept=0,linetype=3,size=1) + 
+  geom_vline(xintercept=0,linetype=3,size=1)+
+  guides(shape=guide_legend(title=NULL,color="black"),
+         fill=guide_legend(title=NULL))+
+  theme_bw()+theme(panel.grid=element_blank())
+
+```
+
